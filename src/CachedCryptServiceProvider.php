@@ -42,26 +42,6 @@ class CachedCryptServiceProvider extends EncryptionServiceProvider
     }
 
     /**
-     * Publish any package specific configuration and assets.
-     *
-     * @return void
-     */
-    private function offerPublishing(): void
-    {
-        if (!$this->app->runningInConsole()) {
-            return;
-        }
-
-        if (!function_exists('config_path')) {
-            return;
-        }
-
-        $this->publishes([
-            __DIR__ . '/../config/cached-crypt.php' => config_path('cached-crypt.php')
-        ], 'config');
-    }
-
-    /**
      * Bind the encrypter to the service container.
      *
      * @return void
@@ -80,5 +60,25 @@ class CachedCryptServiceProvider extends EncryptionServiceProvider
                     )
                 );
         });
+    }
+
+    /**
+     * Publish any package specific configuration and assets.
+     *
+     * @return void
+     */
+    private function offerPublishing(): void
+    {
+        if (!$this->app->runningInConsole()) {
+            return;
+        }
+
+        if (!function_exists('config_path')) {
+            return;
+        }
+
+        $this->publishes([
+            __DIR__ . '/../config/cached-crypt.php' => config_path('cached-crypt.php')
+        ], 'config');
     }
 }
