@@ -1,0 +1,49 @@
+{
+    "name": "sinemacula/laravel-cached-crypt",
+    "type": "library",
+    "description": "A Laravel package that adds transparent caching to decrypted values for improved performance across encrypted attributes.",
+    "keywords": [
+        "sine macula",
+        "laravel",
+        "cache",
+        "encryption"
+    ],
+    "license": "Apache-2.0",
+    "authors": [
+        {
+            "name": "Ben Carey",
+            "email": "bdmc@sinemacula.co.uk"
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "illuminate/encryption": "*",
+        "illuminate/support": "*"
+    },
+    "require-dev": {
+        "laravel/framework": "*",
+        "phpunit/phpunit": "^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "SineMacula\\CachedCrypt\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "extra": {
+        "laravel": {
+            "providers": [
+                "SineMacula\\CachedCrypt\\CachedCryptServiceProvider"
+            ]
+        }
+    }
+}
