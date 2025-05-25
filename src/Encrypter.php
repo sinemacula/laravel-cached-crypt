@@ -27,7 +27,7 @@ class Encrypter extends LaravelEncrypter
         $cache_key = implode(':', [
             'decrypted',
             md5($payload),
-            ($unserialize ? '1' : '0')
+            $unserialize ? '1' : '0'
         ]);
 
         return Cache::rememberForever($cache_key, fn () => parent::decrypt($payload, $unserialize));
