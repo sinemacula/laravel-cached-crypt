@@ -22,7 +22,7 @@ class Encrypter extends LaravelEncrypter
      *
      * @throws \Illuminate\Contracts\Encryption\DecryptException
      */
-    public function decrypt($payload, $unserialize = true)
+    public function decrypt($payload, $unserialize = true): mixed
     {
         $cache_key = implode(':', [
             'decrypted',
