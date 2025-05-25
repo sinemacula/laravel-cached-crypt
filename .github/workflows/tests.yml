@@ -32,11 +32,11 @@ jobs:
                 run: composer install --prefer-dist --no-interaction --no-progress
 
             -   name: Run Tests & Generate Code Coverage Report
-                run: vendor/bin/phpunit --coverage-clover 'coverage.xml'
+                run: vendor/bin/phpunit --coverage-clover 'clover.xml'
 
             -   name: Publish Code Coverage
                 uses: qltysh/qlty-action/coverage@v1
                 if: ${{ github.ref == 'refs/heads/master' }}
                 with:
                     token: ${{ secrets.QLTY_COVERAGE_TOKEN }}
-                    files: coverage.xml
+                    files: clover.xml
