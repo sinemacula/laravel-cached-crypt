@@ -42,7 +42,7 @@ and begin caching decrypted values across your application.
 
 ## How It Works
 
-Laravel Cached Crypt intercepts calls to `Crypt::decryptString()` and caches the decrypted output using a hash of the
+Laravel Cached Crypt intercepts calls to `Crypt::decrypt()` and caches the decrypted output using a hash of the
 encrypted payload. On subsequent calls, it retrieves the decrypted value from cache rather than reprocessing the
 decryption.
 
