@@ -30,7 +30,7 @@ CPU load by avoiding repeated decryption of encrypted values across your applica
 To install Laravel Cached Crypt, run the following command in your project directory:
 
 ```bash
-composer require your-vendor/laravel-cached-crypt
+composer require sinemacula/laravel-cached-crypt
 ```
 
 Laravel will automatically register the service provider via package discovery.
