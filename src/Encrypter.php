@@ -14,13 +14,22 @@ use Illuminate\Support\Facades\Cache;
 class Encrypter extends LaravelEncrypter
 {
     /**
-     * Decrypt string.
+     * Decrypt the given value.
      *
      * @param  string  $payload
-     * @return string
+     * @param  bool  $unserialize
+     * @return mixed
+     *
+     * @throws \Illuminate\Contracts\Encryption\DecryptException
      */
-    public function decryptString($payload): string
+    public function decrypt($payload, $unserialize = true): mixed
     {
-        return Cache::rememberForever('decrypted:' . md5($payload), fn ($payload) => parent::decryptString($payload));
+        $cache_key = implode(':', [
+            'decrypted',
+            md5($payload),
+            $unserialize ? '1' : '0'
+        ]);
+
+        return Cache::rememberForever($cache_key, fn () => parent::decrypt($payload, $unserialize));
     }
 }
