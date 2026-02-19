@@ -30,6 +30,6 @@ class Encrypter extends LaravelEncrypter
             $unserialize ? '1' : '0'
         ]);
 
-        return Cache::rememberForever($cache_key, fn () => parent::decrypt($payload, $unserialize));
+        return Cache::memo()->rememberForever($cache_key, fn () => parent::decrypt($payload, $unserialize));
     }
 }
