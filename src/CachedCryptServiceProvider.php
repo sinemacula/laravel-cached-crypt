@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types = 1);
+
 namespace SineMacula\CachedCrypt;
 
 use Illuminate\Encryption\EncryptionServiceProvider;
@@ -22,7 +24,7 @@ class CachedCryptServiceProvider extends EncryptionServiceProvider
     {
         $this->offerPublishing();
 
-        if (config('cached-crypt.enabled')) {
+        if ($this->cachedCryptEnabled()) {
             Crypt::swap($this->app['encrypter']);
         }
     }
@@ -32,11 +34,19 @@ class CachedCryptServiceProvider extends EncryptionServiceProvider
      *
      * @return void
      */
+    #[\Override]
     public function register(): void
     {
         $this->mergeConfigFrom(
-            __DIR__ . '/../config/cached-crypt.php', 'cached-crypt'
+            __DIR__ . '/../config/cached-crypt.php',
+            'cached-crypt',
         );
+
+        if (!$this->cachedCryptEnabled()) {
+            parent::registerEncrypter();
+
+            return;
+        }
 
         $this->registerEncrypter();
     }
@@ -56,8 +66,8 @@ class CachedCryptServiceProvider extends EncryptionServiceProvider
                 ->previousKeys(
                     array_map(
                         fn ($key) => $this->parseKey(['key' => $key]),
-                        $config['previous_keys'] ?? []
-                    )
+                        $config['previous_keys'] ?? [],
+                    ),
                 );
         });
     }
@@ -78,7 +88,17 @@ class CachedCryptServiceProvider extends EncryptionServiceProvider
         }
 
         $this->publishes([
-            __DIR__ . '/../config/cached-crypt.php' => config_path('cached-crypt.php')
+            __DIR__ . '/../config/cached-crypt.php' => config_path('cached-crypt.php'),
         ], 'config');
+    }
+
+    /**
+     * Determine whether cached-crypt is enabled.
+     *
+     * @return bool
+     */
+    private function cachedCryptEnabled(): bool
+    {
+        return (new CachedCryptConfiguration)->enabled();
     }
 }

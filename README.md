@@ -7,27 +7,28 @@
 [![Code Coverage](https://qlty.sh/badges/38be203a-933b-4ae8-9e80-f6e8f924ecb9/test_coverage.svg)](https://qlty.sh/gh/sinemacula/projects/laravel-cached-crypt)
 [![Total Downloads](https://img.shields.io/packagist/dt/sinemacula/laravel-cached-crypt.svg)](https://packagist.org/packages/sinemacula/laravel-cached-crypt)
 
-> ⚠️ **Security Warning**  
-> This package caches decrypted values using Laravel's configured cache driver. You should **only use this package with
-a cache store that provides encryption at rest**, such as Redis or Memcached in a secured environment. **Do not use this
-with insecure cache drivers like `file` or `array`**, as decrypted data will be stored in plaintext on disk or in
-> memory.
+Laravel Cached Crypt transparently wraps Laravel's encrypter to reduce repeated decrypt overhead in hot paths.
+It memoizes decrypt results in-process and can optionally persist plaintext in cache with bounded TTL, namespace
+versioning, and size guardrails.
 
-Laravel Cached Crypt is a zero-configuration package that transparently adds caching to Laravel’s Crypt facade, reducing
-CPU load by avoiding repeated decryption of encrypted values across your application.
+> ⚠️ **Security Warning**
+> Persisted plaintext caching should only be enabled when operational controls are in place.
+> Use secured Redis/Memcached with encryption in transit and at rest, private networking, and short TTLs.
+> Prefer memo-only mode unless cross-request reuse is required.
 
 ## Features
 
-- **Transparent Integration**: Automatically replaces Laravel's default `Crypt` implementation—no configuration or code
-  changes required.
-- **Cached Decryption**: Caches decrypted values using Laravel's default cache driver (e.g. Redis) to improve
-  performance on read-heavy encrypted fields.
-- **Deployment-Friendly**: Works seamlessly with deploy-based cache flushing strategies to keep cache fresh and
-  consistent.
+- Transparent `Crypt` integration through a custom encrypter binding
+- In-process memoization for repeated decrypts in the same request/job lifecycle
+- Optional cross-request plaintext persistence with TTL (no `rememberForever`)
+- Epoch-based namespace invalidation (`decrypted:{epoch}:{hash}:{flag}`)
+- SHA-256 payload hashing for cache keys
+- Optional dedicated cache store and cache tagging support
+- Size guardrails (`min_bytes_to_cache`, `max_memo_bytes`, `max_bytes_to_cache`)
+- Optional sampled metric logging for hit/miss, decrypt time, and cache write size
+- Optional resolver hook for application-specific caching eligibility decisions
 
 ## Installation
-
-To install Laravel Cached Crypt, run the following command in your project directory:
 
 ```bash
 composer require sinemacula/laravel-cached-crypt
@@ -37,26 +38,80 @@ Laravel will automatically register the service provider via package discovery.
 
 ## Configuration
 
-This package requires no configuration. Once installed, it will automatically override Laravel’s default `Crypt` binding
-and begin caching decrypted values across your application.
+Publish the config file:
+
+```bash
+php artisan vendor:publish --tag=config
+```
+
+Default configuration in `config/cached-crypt.php`:
+
+```php
+return [
+    'enabled' => false,
+    'cache_plaintext' => false,
+    'memo_only' => true,
+    'ttl_seconds' => 120,
+    'epoch' => 'v1',
+    'key_fingerprint' => null,
+    'store' => null,
+    'min_bytes_to_cache' => 1024,
+    'max_memo_bytes' => 262144,
+    'max_bytes_to_cache' => 262144,
+    'use_tags' => false,
+    'eligibility_resolver' => null,
+    'metrics' => [
+        'enabled' => false,
+        'sample_rate' => 0.10,
+    ],
+];
+```
+
+Safe defaults:
+
+- Package disabled by default
+- Memoization available for in-process reuse
+- Cross-request plaintext persistence disabled unless explicitly enabled
 
 ## How It Works
 
-Laravel Cached Crypt intercepts calls to `Crypt::decryptString()` and caches the decrypted output using a hash of the
-encrypted payload. On subsequent calls, it retrieves the decrypted value from cache rather than reprocessing the
-decryption.
+For each decrypt call:
 
-This approach is especially effective for:
+1. Build a namespaced key with epoch and SHA-256 payload hash.
+2. Read from in-process memoization cache first.
+3. Optionally read/write persistent plaintext cache when enabled and eligible.
+4. Fallback to Laravel decrypt and memoize result.
 
-- APIs that return encrypted model attributes in large datasets
-- Applications with frequent reads from encrypted fields
-- Reducing CPU load and PHP-FPM worker saturation under high concurrency
+Persistent writes are bounded by:
 
-## Security Considerations
+- `ttl_seconds`
+- `min_bytes_to_cache` (encrypted payload size)
+- `max_memo_bytes` (in-process memo value size estimate)
+- `max_bytes_to_cache` (decrypted value size estimate)
+- Optional resolver callback (`eligibility_resolver`)
 
-Decrypted values are stored in your application’s configured cache store. Ensure that your cache backend (e.g. Redis) is
-properly secured, resides within a private network or VPC, and uses encryption in transit. This package does not alter
-Laravel’s encryption algorithms or key handling in any way.
+## Operating Modes
+
+- `memo_only = true`: in-process reuse only, no cross-request plaintext persistence.
+- `cache_plaintext = true` and `memo_only = false`: allows persistent plaintext caching with guardrails.
+
+## Key Rotation and Invalidation
+
+When encryption settings change (for example `APP_KEY`, cipher, or `previous_keys`), bump `epoch`.
+This immediately cold-starts cached plaintext keys without requiring global cache flushes.
+
+If `use_tags` is enabled and the store supports tags, entries are grouped under:
+
+- `cached-crypt`
+- `cached-crypt:{epoch}`
+
+## Metrics
+
+When `metrics.enabled` is true, sampled events are logged with:
+
+- cache hit/miss source (`memo` or `persistent`)
+- decrypt duration in milliseconds
+- approximate bytes persisted for cache writes
 
 ## Testing
 

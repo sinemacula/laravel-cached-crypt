@@ -11,9 +11,8 @@ use PHPUnit\Framework\TestCase;
  * @copyright   2026 Sine Macula Limited.
  *
  * @internal
- *
- * @coversNothing
  */
+#[\PHPUnit\Framework\Attributes\CoversNothing]
 class ExampleTest extends TestCase
 {
     /**
@@ -21,8 +20,8 @@ class ExampleTest extends TestCase
      *
      * @return void
      */
-    public function test_that_true_is_true()
+    public function testThatTrueIsTrue(): void
     {
-        self::assertTrue(true);
+        static::assertTrue(true);
     }
 }

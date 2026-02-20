@@ -2,47 +2,50 @@
 
 ## Project Overview
 
-Laravel Resource Exporter is Sine Macula's Laravel integration package for converting JsonResource and
-ResourceCollection data into exportable formats.
-It provides a Laravel-native integration for exporter configuration, driver resolution, typed contracts, and
-format-specific output generation.
+Laravel Cached Crypt is Sine Macula's Laravel integration package for reducing repeated decryption overhead.
+It provides a Laravel-native encrypter replacement that caches decrypted payloads to improve hot-path performance while
+preserving framework encryption behavior.
 
 Current implementation includes:
 
-- Service provider registration and package configuration publishing for exporter defaults and alias binding
-- Export manager wiring for resolving configured drivers and building on-demand exporters
-- Contract + base exporter abstractions for shared configuration and field-exclusion behavior
-- Driver-based export implementations for CSV and XML output generation
-- Facade integration for convenient access to the export manager
-- Custom driver extension hooks for adding additional formats without changing core drivers
-- PHPUnit unit and integration test suites (including Laravel Testbench integration coverage)
-- A 100% coverage baseline across source classes, methods, and lines
+- Service provider registration and package configuration publishing for cached-crypt settings
+- Encrypter container binding that extends Laravel's encryption provider behavior
+- Crypt facade integration via encrypter swapping when the package is enabled
+- Decrypt override logic with memoization plus optional persistent plaintext caching
+- Time-bounded cache persistence controls (TTL) with epoch-based namespace invalidation
+- SHA-256 payload key hashing and optional key fingerprint namespacing
+- Optional store selection, tag-aware cache grouping, and memo/persistence size-based guardrails
+- Optional sampled instrumentation for cache/decrypt behavior metrics
+- Compatibility handling for Laravel key parsing, configured cipher, and previous key support
+- Initial PHPUnit test scaffolding and repository quality tooling integration
 
 This repository is intended to remain:
 
 - Laravel-specific
-- Integration-focused
+- Security-aware and operationally explicit
 - Minimal and explicit
 
 ## Namespace Structure
 
-- Root namespace: `SineMacula\Exporter\`
-- Source: `src/` -> `SineMacula\Exporter\`
+- Root namespace: `SineMacula\CachedCrypt\`
+- Source: `src/` -> `SineMacula\CachedCrypt\`
 - Tests: `tests/` -> `Tests\`
 
 ### Domain Scope
 
 The package currently centers around:
 
-- Service provider registration and configurable defaults for exporter selection and binding alias
-- Export manager resolution flow for default, named, and custom drivers
-- Contracts and entities for exporting arrays, JsonResource items, and ResourceCollection sets
-- Domain-specific formatting behavior for CSV and XML exporters
-- Compatibility behavior for Laravel JsonResource and ResourceCollection export pipelines
-- Integration coverage for service provider binding, facade access, and driver extension behavior
+- Service provider registration and configurable defaults for cached-crypt enablement behavior
+- Encrypter binding and resolution flow through Laravel's container and Crypt facade integration points
+- Cache-assisted decrypt behavior for repeated encrypted payload access paths
+- Operationally safe plaintext cache persistence controls with explicit invalidation boundaries
+- In-process memoization guardrails to reduce PHP memory pressure from oversized values
+- Compatibility behavior for Laravel cipher, key parsing, and previous key fallback support
+- Security-sensitive plaintext cache handling expectations and operational constraints
+- Integration coverage for service provider wiring and encrypter substitution behavior
 
-This package is an integration layer. It must not become a generic reporting engine, infrastructure provisioning tool,
-or a Laravel fork.
+This package is an integration layer. It must not become a generic key-management system, infrastructure provisioning
+tool, or a Laravel fork.
 
 ## Agent Role and Responsibility
 
@@ -87,7 +90,7 @@ The agent is **not** responsible for:
 - Apply DDD principles where appropriate (entities, value objects, services)
 - Follow Clean Code and SOLID principles
 - Depend on interfaces, not implementations
-- Preserve Laravel-facing contracts and resource-export compatibility
+- Preserve Laravel-facing contracts and encryption compatibility
 - Use `readonly` classes where immutability is appropriate
 
 ## Mandatory Skill Coverage
@@ -194,14 +197,14 @@ Manual approval is required for:
 - Format code: `composer format`
 - Run tests: `composer test`
 - Run tests with coverage: `composer test-coverage`
-- Run a single test file: `vendor/bin/phpunit tests/Unit/ExportManagerTest.php`
+- Run a single test file: `vendor/bin/phpunit tests/Unit/ExampleTest.php`
 - Run a single test method:
-  `vendor/bin/phpunit --filter testFormatResolvesDefaultAndNamedDrivers tests/Unit/ExportManagerTest.php`
+  `vendor/bin/phpunit --filter testThatTrueIsTrue tests/Unit/ExampleTest.php`
 
 ## Tests & Quality
 
 - Use `composer test` (parallel PHPUnit via Paratest) for deterministic local checks
-- Test driver resolution, resource mapping, output formatting behavior, and contract stability
+- Test encrypter substitution, decrypt caching behavior, and encryption contract stability
 - If code is not easily testable, propose refactoring before adding tests
 
 ### Test Writing
@@ -220,9 +223,9 @@ Manual approval is required for:
   - `refactor/`
 - Branch names SHOULD include the GitHub issue number when available Format:
   `<type>/issue-<number>-short-hyphenated-description` Example:
-  `feature/issue-123-add-json-export-driver`
+  `feature/issue-123-add-ttl-based-decrypt-cache`
 - If no issue exists, use a concise, hyphenated description Format: `<type>/short-hyphenated-description` Example:
-  `refactor/simplify-export-manager-driver-resolution`
+  `refactor/simplify-encrypter-cache-key-generation`
 - Keep names lowercase, concise, and hyphenated
 
 ## Commit Message Guidelines
