@@ -42,13 +42,7 @@ class CachedCryptServiceProvider extends EncryptionServiceProvider
             'cached-crypt',
         );
 
-        if (!$this->cachedCryptEnabled()) {
-            parent::registerEncrypter();
-
-            return;
-        }
-
-        $this->registerEncrypter();
+        parent::register();
     }
 
     /**
@@ -56,10 +50,15 @@ class CachedCryptServiceProvider extends EncryptionServiceProvider
      *
      * @return void
      */
+    #[\Override]
     protected function registerEncrypter(): void
     {
-        $this->app->singleton('encrypter', function ($app) {
+        if (!$this->cachedCryptEnabled()) {
+            parent::registerEncrypter();
+            return;
+        }
 
+        $this->app->singleton('encrypter', function ($app) {
             $config = $app->make('config')->get('app');
 
             return (new Encrypter($this->parseKey($config), $config['cipher']))

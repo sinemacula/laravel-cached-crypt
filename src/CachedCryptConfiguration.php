@@ -28,7 +28,7 @@ final class CachedCryptConfiguration
      */
     public function enabled(): bool
     {
-        return $this->boolean('enabled', false);
+        return $this->boolean('enabled', true);
     }
 
     /**
@@ -283,18 +283,23 @@ final class CachedCryptConfiguration
     private function passesEligibilityResolver(string $payload, bool $unserialize): bool
     {
         $resolver = $this->value('eligibility_resolver');
+        $passes   = true;
 
-        if ($resolver === null) {
-            return true;
+        if ($resolver !== null) {
+            $resolved_resolver = $this->eligibilityResolver($resolver);
+
+            if ($resolved_resolver === null) {
+                $passes = false;
+            } else {
+                try {
+                    $passes = $resolved_resolver($payload, $unserialize);
+                } catch (\Throwable) {
+                    $passes = false;
+                }
+            }
         }
 
-        $resolved_resolver = $this->eligibilityResolver($resolver);
-
-        if ($resolved_resolver === null) {
-            return false;
-        }
-
-        return $resolved_resolver($payload, $unserialize);
+        return $passes;
     }
 
     /**
@@ -306,7 +311,11 @@ final class CachedCryptConfiguration
     private function eligibilityResolver(mixed $resolver): ?\Closure
     {
         if (is_string($resolver) && class_exists($resolver)) {
-            $resolver = app($resolver);
+            try {
+                $resolver = app($resolver);
+            } catch (\Throwable) {
+                return null;
+            }
         }
 
         if (!is_callable($resolver)) {

@@ -35,6 +35,7 @@ composer require sinemacula/laravel-cached-crypt
 ```
 
 Laravel will automatically register the service provider via package discovery.
+No manual provider ordering is required.
 
 ## Configuration
 
@@ -48,7 +49,7 @@ Default configuration in `config/cached-crypt.php`:
 
 ```php
 return [
-    'enabled' => false,
+    'enabled' => true,
     'cache_plaintext' => false,
     'memo_only' => true,
     'ttl_seconds' => 120,
@@ -69,7 +70,7 @@ return [
 
 Safe defaults:
 
-- Package disabled by default
+- Package enabled by default in memo-only mode
 - Memoization available for in-process reuse
 - Cross-request plaintext persistence disabled unless explicitly enabled
 

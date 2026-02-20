@@ -24,6 +24,7 @@ abstract class TestCase extends OrchestraTestCase
      *
      * @return void
      */
+    #[\Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -39,6 +40,7 @@ abstract class TestCase extends OrchestraTestCase
      * @param  mixed  $app
      * @return void
      */
+    #[\Override]
     protected function getEnvironmentSetUp(mixed $app): void
     {
         if (!$app instanceof Application) {

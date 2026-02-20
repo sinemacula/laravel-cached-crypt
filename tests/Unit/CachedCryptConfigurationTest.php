@@ -8,6 +8,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\CachedCrypt\CachedCryptConfiguration;
 use Tests\Fixtures\AlwaysFalseEligibilityResolver;
 use Tests\Fixtures\AlwaysTrueEligibilityResolver;
+use Tests\Fixtures\EligibilityResolverFailure;
+use Tests\Fixtures\UnresolvableEligibilityResolver;
 use Tests\Support\TestCase;
 
 /**
@@ -30,6 +32,21 @@ final class CachedCryptConfigurationTest extends TestCase
     {
         config()->set('cached-crypt.enabled', false);
         config()->set('cached_crypt.enabled', '1');
+
+        $configuration = new CachedCryptConfiguration;
+
+        self::assertTrue($configuration->enabled());
+    }
+
+    /**
+     * Ensure enabled defaults to true when config value is absent.
+     *
+     * @return void
+     */
+    public function testEnabledDefaultsToTrueWhenConfigValueIsMissing(): void
+    {
+        config()->set('cached_crypt', []);
+        config()->set('cached-crypt', []);
 
         $configuration = new CachedCryptConfiguration;
 
@@ -128,6 +145,24 @@ final class CachedCryptConfigurationTest extends TestCase
             'memo_only'            => false,
             'min_bytes_to_cache'   => null,
             'eligibility_resolver' => AlwaysFalseEligibilityResolver::class,
+        ]);
+        self::assertFalse($configuration->canPersistPlaintext('ok', true));
+
+        $this->setCachedCryptConfig([
+            'cache_plaintext'      => true,
+            'memo_only'            => false,
+            'min_bytes_to_cache'   => null,
+            'eligibility_resolver' => static function (): bool {
+                throw new EligibilityResolverFailure('Resolver invocation failed.');
+            },
+        ]);
+        self::assertFalse($configuration->canPersistPlaintext('ok', true));
+
+        $this->setCachedCryptConfig([
+            'cache_plaintext'      => true,
+            'memo_only'            => false,
+            'min_bytes_to_cache'   => null,
+            'eligibility_resolver' => UnresolvableEligibilityResolver::class,
         ]);
         self::assertFalse($configuration->canPersistPlaintext('ok', true));
     }

@@ -41,6 +41,7 @@ final class EncrypterInternalsTest extends TestCase
              *
              * @return bool
              */
+            #[\Override]
             public function supportsTags(): bool
             {
                 return true;
@@ -52,6 +53,7 @@ final class EncrypterInternalsTest extends TestCase
              * @param  mixed  $names
              * @return \Illuminate\Cache\TaggedCache
              */
+            #[\Override]
             public function tags(mixed $names): TaggedCache
             {
                 $this->lastTags = is_array($names) ? array_values($names) : [$names];
@@ -178,6 +180,72 @@ final class EncrypterInternalsTest extends TestCase
         ]);
 
         self::assertTrue($this->invokePrivateMethod($encrypter, 'shouldSampleMetric'));
+    }
+
+    /**
+     * Ensure persistent cache resolution failures do not fail decrypt flow.
+     *
+     * @return void
+     */
+    public function testResolveCachedValueHandlesPersistentReadFailures(): void
+    {
+        config()->set('cache.stores', []);
+
+        Cache::shouldReceive('store')
+            ->once()
+            ->with('broken')
+            ->andThrow(new \RuntimeException('Cache backend unavailable.'));
+
+        $encrypter = $this->newEncrypter();
+        $context   = [
+            'cache_key'             => 'decrypted:v1:test:1',
+            'memo_key'              => 'memo:decrypted:v1:test:1',
+            'ttl_seconds'           => 120,
+            'store'                 => 'broken',
+            'epoch'                 => 'v1',
+            'use_tags'              => false,
+            'can_persist_plaintext' => true,
+        ];
+
+        $resolved_value = $this->invokePrivateMethod($encrypter, 'resolveCachedValue', [$context]);
+
+        self::assertFalse($resolved_value['hit']);
+        self::assertNull($resolved_value['value']);
+        self::assertNull($resolved_value['cache_repository']);
+    }
+
+    /**
+     * Ensure persistent write failures do not fail decrypt execution.
+     *
+     * @return void
+     */
+    public function testDecryptAndCacheHandlesPersistentWriteFailures(): void
+    {
+        $this->setCachedCryptConfig([
+            'cache_plaintext'    => true,
+            'memo_only'          => false,
+            'max_bytes_to_cache' => null,
+        ]);
+
+        $repository = self::createStub(CacheRepository::class);
+        $repository->method('put')->willThrowException(new \RuntimeException('Cache write failed.'));
+
+        $encrypter = $this->newEncrypter();
+        $payload   = $encrypter->encrypt('fail-open');
+        $context   = [
+            'cache_key'             => 'decrypted:v1:test:1',
+            'memo_key'              => 'memo:decrypted:v1:test:1',
+            'ttl_seconds'           => 120,
+            'can_persist_plaintext' => true,
+        ];
+
+        $decrypted_value = $this->invokePrivateMethod(
+            $encrypter,
+            'decryptAndCache',
+            [$payload, true, $context, $repository],
+        );
+
+        self::assertSame('fail-open', $decrypted_value);
     }
 
     /**

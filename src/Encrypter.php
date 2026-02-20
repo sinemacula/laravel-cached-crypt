@@ -98,15 +98,26 @@ class Encrypter extends LaravelEncrypter
         }
 
         if (!$has_hit && $can_persist_plaintext) {
-            $cache_repository = $this->persistentRepository(
-                $cache_context['store'],
-                $cache_context['use_tags'],
-                $cache_context['epoch'],
-            );
-            $persisted_value = $this->readRepositoryValue(
-                $cache_repository,
-                $cache_context['cache_key'],
-            );
+            try {
+                $cache_repository = $this->persistentRepository(
+                    $cache_context['store'],
+                    $cache_context['use_tags'],
+                    $cache_context['epoch'],
+                );
+                $persisted_value = $this->readRepositoryValue(
+                    $cache_repository,
+                    $cache_context['cache_key'],
+                );
+            } catch (\Throwable $exception) {
+                $cache_repository = null;
+                $this->recordMetric('cache.error', [
+                    'source'    => 'persistent',
+                    'operation' => 'read',
+                    'exception' => $exception::class,
+                ]);
+
+                $persisted_value = ['hit' => false, 'value' => null];
+            }
 
             if ($persisted_value['hit']) {
                 $this->writeMemoizedValue(
@@ -164,7 +175,15 @@ class Encrypter extends LaravelEncrypter
         ]);
 
         if ($repository !== null && $this->shouldPersistPlaintext($context, $decrypted_value)) {
-            $this->persistPlaintextValue($repository, $context, $decrypted_value);
+            try {
+                $this->persistPlaintextValue($repository, $context, $decrypted_value);
+            } catch (\Throwable $exception) {
+                $this->recordMetric('cache.error', [
+                    'source'    => 'persistent',
+                    'operation' => 'write',
+                    'exception' => $exception::class,
+                ]);
+            }
         }
 
         return $decrypted_value;

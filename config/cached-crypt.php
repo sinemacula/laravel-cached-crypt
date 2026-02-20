@@ -9,12 +9,12 @@ return [
     | Cached Crypt Configuration
     |--------------------------------------------------------------------------
     |
-    | Enable or disable cached-crypt integration. When disabled, Laravel's
-    | default encrypter behavior remains in place.
+    | Enable or disable cached-crypt integration.
+    | Default is enabled for drop-in optimization without extra setup.
     |
     */
 
-    'enabled' => env('CACHED_CRYPT_ENABLED', false),
+    'enabled' => env('CACHED_CRYPT_ENABLED', true),
 
     /*
     |--------------------------------------------------------------------------

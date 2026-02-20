@@ -11,6 +11,7 @@ Current implementation includes:
 - Service provider registration and package configuration publishing for cached-crypt settings
 - Encrypter container binding that extends Laravel's encryption provider behavior
 - Crypt facade integration via encrypter swapping when the package is enabled
+- Drop-in defaults that enable memo-only optimization without additional environment configuration
 - Decrypt override logic with memoization plus optional persistent plaintext caching
 - Time-bounded cache persistence controls (TTL) with epoch-based namespace invalidation
 - SHA-256 payload key hashing and optional key fingerprint namespacing

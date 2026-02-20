@@ -6,6 +6,8 @@ namespace Tests\Integration;
 
 use Illuminate\Encryption\Encrypter as LaravelEncrypter;
 use Illuminate\Support\Facades\Crypt;
+use Laravel\SerializableClosure\SerializableClosure;
+use Laravel\SerializableClosure\Serializers\Signed;
 use PHPUnit\Framework\Attributes\CoversClass;
 use SineMacula\CachedCrypt\CachedCryptServiceProvider;
 use SineMacula\CachedCrypt\Encrypter;
@@ -22,6 +24,25 @@ use Tests\Support\TestCase;
 #[CoversClass(CachedCryptServiceProvider::class)]
 final class CachedCryptServiceProviderIntegrationTest extends TestCase
 {
+    /**
+     * Ensure package defaults provide drop-in optimized encrypter binding.
+     *
+     * @return void
+     */
+    public function testRegisterUsesPackageDefaultsForDropInOptimization(): void
+    {
+        config()->set('cached_crypt', []);
+        config()->set('cached-crypt', []);
+
+        $provider = new CachedCryptServiceProvider($this->application());
+
+        $provider->register();
+
+        $resolved_encrypter = $this->application()->make('encrypter');
+
+        self::assertInstanceOf(Encrypter::class, $resolved_encrypter);
+    }
+
     /**
      * Ensure disabled mode keeps framework encrypter binding.
      *
@@ -67,6 +88,46 @@ final class CachedCryptServiceProviderIntegrationTest extends TestCase
 
         self::assertInstanceOf(Encrypter::class, $resolved_encrypter);
         self::assertSame('legacy-value', $resolved_encrypter->decrypt($legacy_payload));
+    }
+
+    /**
+     * Ensure register configures serializable-closure key when disabled.
+     *
+     * @return void
+     */
+    public function testRegisterConfiguresSerializableClosureSecurityKeyWhenDisabled(): void
+    {
+        SerializableClosure::setSecretKey(null);
+
+        $this->setCachedCryptConfig([
+            'enabled' => false,
+        ]);
+
+        $provider = new CachedCryptServiceProvider($this->application());
+
+        $provider->register();
+
+        self::assertNotNull(Signed::$signer);
+    }
+
+    /**
+     * Ensure register configures serializable-closure key when enabled.
+     *
+     * @return void
+     */
+    public function testRegisterConfiguresSerializableClosureSecurityKeyWhenEnabled(): void
+    {
+        SerializableClosure::setSecretKey(null);
+
+        $this->setCachedCryptConfig([
+            'enabled' => true,
+        ]);
+
+        $provider = new CachedCryptServiceProvider($this->application());
+
+        $provider->register();
+
+        self::assertNotNull(Signed::$signer);
     }
 
     /**
