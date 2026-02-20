@@ -8,6 +8,7 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Cache;
 use Orchestra\Testbench\TestCase as OrchestraTestCase;
+use SineMacula\CachedCrypt\Encrypter;
 
 /**
  * Base test case for package tests.
@@ -107,5 +108,21 @@ abstract class TestCase extends OrchestraTestCase
         assert($this->app instanceof Application);
 
         return $this->app;
+    }
+
+    /**
+     * Create a new package encrypter.
+     *
+     * @return \SineMacula\CachedCrypt\Encrypter
+     */
+    protected function newEncrypter(): Encrypter
+    {
+        $cipher = config('app.cipher');
+
+        if (!is_string($cipher)) {
+            $cipher = 'aes-256-cbc';
+        }
+
+        return new Encrypter(str_repeat('a', 32), $cipher);
     }
 }

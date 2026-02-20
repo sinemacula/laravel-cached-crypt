@@ -368,22 +368,6 @@ final class EncrypterTest extends TestCase
     }
 
     /**
-     * Create a new package encrypter.
-     *
-     * @return \SineMacula\CachedCrypt\Encrypter
-     */
-    private function newEncrypter(): Encrypter
-    {
-        $cipher = config('app.cipher');
-
-        if (!is_string($cipher)) {
-            $cipher = 'aes-256-cbc';
-        }
-
-        return new Encrypter(str_repeat('a', 32), $cipher);
-    }
-
-    /**
      * Build expected cache key for assertions.
      *
      * @param  string  $payload

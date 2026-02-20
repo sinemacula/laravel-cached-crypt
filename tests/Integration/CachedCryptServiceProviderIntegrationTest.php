@@ -97,17 +97,7 @@ final class CachedCryptServiceProviderIntegrationTest extends TestCase
      */
     public function testRegisterConfiguresSerializableClosureSecurityKeyWhenDisabled(): void
     {
-        SerializableClosure::setSecretKey(null);
-
-        $this->setCachedCryptConfig([
-            'enabled' => false,
-        ]);
-
-        $provider = new CachedCryptServiceProvider($this->application());
-
-        $provider->register();
-
-        self::assertNotNull(Signed::$signer);
+        $this->assertRegisterConfiguresSerializableClosureSecurityKey(false);
     }
 
     /**
@@ -117,17 +107,7 @@ final class CachedCryptServiceProviderIntegrationTest extends TestCase
      */
     public function testRegisterConfiguresSerializableClosureSecurityKeyWhenEnabled(): void
     {
-        SerializableClosure::setSecretKey(null);
-
-        $this->setCachedCryptConfig([
-            'enabled' => true,
-        ]);
-
-        $provider = new CachedCryptServiceProvider($this->application());
-
-        $provider->register();
-
-        self::assertNotNull(Signed::$signer);
+        $this->assertRegisterConfiguresSerializableClosureSecurityKey(true);
     }
 
     /**
@@ -169,5 +149,26 @@ final class CachedCryptServiceProviderIntegrationTest extends TestCase
         $enabled_provider->boot();
 
         self::assertSame($this->application()->make('encrypter'), Crypt::getFacadeRoot());
+    }
+
+    /**
+     * Assert register configures serializable-closure security key.
+     *
+     * @param  bool  $enabled
+     * @return void
+     */
+    private function assertRegisterConfiguresSerializableClosureSecurityKey(bool $enabled): void
+    {
+        SerializableClosure::setSecretKey(null);
+
+        $this->setCachedCryptConfig([
+            'enabled' => $enabled,
+        ]);
+
+        $provider = new CachedCryptServiceProvider($this->application());
+
+        $provider->register();
+
+        self::assertNotNull(Signed::$signer);
     }
 }
