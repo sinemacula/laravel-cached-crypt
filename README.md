@@ -58,15 +58,22 @@ Decrypted values are stored in your application’s configured cache store. Ensu
 properly secured, resides within a private network or VPC, and uses encryption in transit. This package does not alter
 Laravel’s encryption algorithms or key handling in any way.
 
+## Testing
+
+```bash
+composer test
+composer test-coverage
+composer check
+```
+
 ## Contributing
 
-Contributions are welcome and will be fully credited. We accept contributions via pull requests on GitHub.
+Contributions are welcome via GitHub pull requests.
 
 ## Security
 
-If you discover any security-related issues, please email instead of using the issue tracker.
+If you discover a security issue, please contact Sine Macula directly rather than opening a public issue.
 
 ## License
 
-Laravel Cached Crypt is open-sourced software licensed under
-the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+Licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
