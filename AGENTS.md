@@ -3,28 +3,27 @@
 ## Project Overview
 
 Laravel Cached Crypt is Sine Macula's Laravel integration package for reducing repeated decryption overhead.
-It provides a Laravel-native encrypter replacement that caches decrypted payloads to improve hot-path performance while
-preserving framework encryption behavior.
+It provides a Laravel-native encrypter replacement focused on hot-path decrypt performance while preserving Laravel's
+encryption contract.
 
 Current implementation includes:
 
 - Service provider registration and package configuration publishing for cached-crypt settings
-- Encrypter container binding that extends Laravel's encryption provider behavior
+- Provider registration parity with Laravel encryption setup, including serializable-closure security key registration
 - Crypt facade integration via encrypter swapping when the package is enabled
-- Drop-in defaults that enable memo-only optimization without additional environment configuration
-- Decrypt override logic with memoization plus optional persistent plaintext caching
-- Time-bounded cache persistence controls (TTL) with epoch-based namespace invalidation
-- SHA-256 payload key hashing and optional key fingerprint namespacing
-- Optional store selection, tag-aware cache grouping, and memo/persistence size-based guardrails
-- Optional sampled instrumentation for cache/decrypt behavior metrics
-- Compatibility handling for Laravel key parsing, configured cipher, and previous key support
-- Initial PHPUnit test scaffolding and repository quality tooling integration
+- Drop-in defaults with memo-only optimization enabled out of the box
+- Decrypt override logic with memoization and optional persistent plaintext caching
+- TTL, epoch, and optional key-fingerprint namespacing for bounded and invalidatable persistence
+- Optional store selection, optional tags, and size guardrails for memo/persistent cache paths
+- Optional eligibility resolver hook and sampled metrics for observability and policy control
+- Fail-open handling for cache backend and resolver failures to preserve decrypt behavior
+- Comprehensive unit/integration coverage and repository quality tooling integration
 
 This repository is intended to remain:
 
 - Laravel-specific
 - Security-aware and operationally explicit
-- Minimal and explicit
+- Minimal, maintainable, and explicit
 
 ## Namespace Structure
 
@@ -36,14 +35,14 @@ This repository is intended to remain:
 
 The package currently centers around:
 
-- Service provider registration and configurable defaults for cached-crypt enablement behavior
-- Encrypter binding and resolution flow through Laravel's container and Crypt facade integration points
+- Service provider registration and container binding parity with Laravel encryption behavior
+- Encrypter resolution flow through Laravel's container and Crypt facade integration points
 - Cache-assisted decrypt behavior for repeated encrypted payload access paths
-- Operationally safe plaintext cache persistence controls with explicit invalidation boundaries
-- In-process memoization guardrails to reduce PHP memory pressure from oversized values
-- Compatibility behavior for Laravel cipher, key parsing, and previous key fallback support
-- Security-sensitive plaintext cache handling expectations and operational constraints
-- Integration coverage for service provider wiring and encrypter substitution behavior
+- Memo-only default mode and optional plaintext persistence mode
+- Operational persistence controls via TTL, epoch invalidation, and optional key fingerprinting
+- Size guardrails for both in-process memoization and persistent plaintext caching
+- Optional tagging, resolver-based eligibility filtering, and sampled instrumentation
+- Compatibility behavior for Laravel cipher, key parsing, and previous-key fallback support
 
 This package is an integration layer. It must not become a generic key-management system, infrastructure provisioning
 tool, or a Laravel fork.
