@@ -83,10 +83,6 @@ class CachedCryptServiceProvider extends EncryptionServiceProvider
             return;
         }
 
-        if (!function_exists('config_path')) {
-            return;
-        }
-
         $this->publishes([
             __DIR__ . '/../config/cached-crypt.php' => config_path('cached-crypt.php'),
         ], 'config');
