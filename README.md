@@ -7,9 +7,9 @@
 [![Code Coverage](https://qlty.sh/badges/38be203a-933b-4ae8-9e80-f6e8f924ecb9/test_coverage.svg)](https://qlty.sh/gh/sinemacula/projects/laravel-cached-crypt)
 [![Total Downloads](https://img.shields.io/packagist/dt/sinemacula/laravel-cached-crypt.svg)](https://packagist.org/packages/sinemacula/laravel-cached-crypt)
 
-Laravel Cached Crypt transparently wraps Laravel's encrypter to reduce repeated decrypt overhead in hot paths.
-It memoizes decrypt results in-process and can optionally persist plaintext in cache with bounded TTL, namespace
-versioning, and size guardrails.
+Laravel Cached Crypt wraps Laravel's encrypter to reduce repeated decrypt overhead in hot paths.
+It is drop-in by default, memoizes decrypt results in-process, and can optionally persist plaintext with bounded TTL,
+epoch versioning, and size guardrails.
 
 > ⚠️ **Security Warning**
 > Persisted plaintext caching should only be enabled when operational controls are in place.
@@ -18,15 +18,16 @@ versioning, and size guardrails.
 
 ## Features
 
-- Transparent `Crypt` integration through a custom encrypter binding
-- In-process memoization for repeated decrypts in the same request/job lifecycle
+- Drop-in provider integration with no manual registration order requirements
+- Enabled-by-default memo-only optimization path (`enabled=true`, `memo_only=true`, `cache_plaintext=false`)
 - Optional cross-request plaintext persistence with TTL (no `rememberForever`)
-- Epoch-based namespace invalidation (`decrypted:{epoch}:{hash}:{flag}`)
+- Epoch and optional key fingerprint namespacing for safe invalidation boundaries
 - SHA-256 payload hashing for cache keys
-- Optional dedicated cache store and cache tagging support
+- Optional dedicated cache store and optional cache tagging
 - Size guardrails (`min_bytes_to_cache`, `max_memo_bytes`, `max_bytes_to_cache`)
-- Optional sampled metric logging for hit/miss, decrypt time, and cache write size
-- Optional resolver hook for application-specific caching eligibility decisions
+- Optional eligibility resolver hook for app-specific persistence decisions
+- Fail-open behavior for cache backend and resolver failures (decrypt path preserved)
+- Optional sampled metric logging for cache/decrypt behavior
 
 ## Installation
 
@@ -70,9 +71,9 @@ return [
 
 Safe defaults:
 
-- Package enabled by default in memo-only mode
-- Memoization available for in-process reuse
-- Cross-request plaintext persistence disabled unless explicitly enabled
+- Works out of the box with no additional env vars
+- Package enabled in memo-only mode by default
+- Cross-request plaintext persistence remains off unless explicitly enabled
 
 ## How It Works
 
@@ -81,7 +82,8 @@ For each decrypt call:
 1. Build a namespaced key with epoch and SHA-256 payload hash.
 2. Read from in-process memoization cache first.
 3. Optionally read/write persistent plaintext cache when enabled and eligible.
-4. Fallback to Laravel decrypt and memoize result.
+4. Decrypt via Laravel when needed, then memoize and optionally persist.
+5. Fail open on cache/resolver errors so decrypt behavior is preserved.
 
 Persistent writes are bounded by:
 
@@ -113,6 +115,7 @@ When `metrics.enabled` is true, sampled events are logged with:
 - cache hit/miss source (`memo` or `persistent`)
 - decrypt duration in milliseconds
 - approximate bytes persisted for cache writes
+- cache error events for persistent read/write failures
 
 ## Testing
 
