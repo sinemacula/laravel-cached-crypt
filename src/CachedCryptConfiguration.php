@@ -40,21 +40,21 @@ final class CachedCryptConfiguration
      */
     public function canPersistPlaintext(string $payload, bool $unserialize): bool
     {
-        $should_persist_plaintext = $this->boolean('cache_plaintext', false)
+        $shouldPersistPlaintext = $this->boolean('cache_plaintext', false)
             && !$this->boolean('memo_only', true)
             && $this->passesEligibilityResolver($payload, $unserialize);
 
-        if (!$should_persist_plaintext) {
+        if (!$shouldPersistPlaintext) {
             return false;
         }
 
-        $minimum_payload_bytes = $this->nullableInteger('min_bytes_to_cache');
+        $minimumPayloadBytes = $this->nullableInteger('min_bytes_to_cache');
 
-        if ($minimum_payload_bytes === null) {
+        if ($minimumPayloadBytes === null) {
             return true;
         }
 
-        return strlen($payload) >= $minimum_payload_bytes;
+        return strlen($payload) >= $minimumPayloadBytes;
     }
 
     /**
@@ -94,14 +94,14 @@ final class CachedCryptConfiguration
      */
     public function storeName(): ?string
     {
-        $store_name = $this->string('store');
+        $storeName = $this->string('store');
 
-        if ($store_name === null) {
+        if ($storeName === null) {
             return null;
         }
 
-        if (config()->has(sprintf('cache.stores.%s', $store_name))) {
-            return $store_name;
+        if (config()->has(sprintf('cache.stores.%s', $storeName))) {
+            return $storeName;
         }
 
         return null;
@@ -114,10 +114,10 @@ final class CachedCryptConfiguration
      */
     public function ttlSeconds(): int
     {
-        $ttl_seconds = $this->integer('ttl_seconds', self::DEFAULT_TTL_SECONDS);
+        $ttlSeconds = $this->integer('ttl_seconds', self::DEFAULT_TTL_SECONDS);
 
-        if ($ttl_seconds > 0) {
-            return $ttl_seconds;
+        if ($ttlSeconds > 0) {
+            return $ttlSeconds;
         }
 
         return self::DEFAULT_TTL_SECONDS;
@@ -150,13 +150,13 @@ final class CachedCryptConfiguration
      */
     public function metricSampleRate(): float
     {
-        $sample_rate = $this->value('metrics.sample_rate', self::DEFAULT_METRIC_SAMPLE_RATE);
+        $sampleRate = $this->value('metrics.sample_rate', self::DEFAULT_METRIC_SAMPLE_RATE);
 
-        if (!is_numeric($sample_rate)) {
+        if (!is_numeric($sampleRate)) {
             return self::DEFAULT_METRIC_SAMPLE_RATE;
         }
 
-        return max(0.0, min(1.0, (float) $sample_rate));
+        return max(0.0, min(1.0, (float) $sampleRate));
     }
 
     /**
@@ -178,16 +178,16 @@ final class CachedCryptConfiguration
      */
     public function value(string $key, mixed $default = null): mixed
     {
-        $underscored_path = sprintf('cached_crypt.%s', $key);
+        $underscoredPath = sprintf('cached_crypt.%s', $key);
 
-        if (config()->has($underscored_path)) {
-            return config($underscored_path);
+        if (config()->has($underscoredPath)) {
+            return config($underscoredPath);
         }
 
-        $hyphenated_path = sprintf('cached-crypt.%s', $key);
+        $hyphenatedPath = sprintf('cached-crypt.%s', $key);
 
-        if (config()->has($hyphenated_path)) {
-            return config($hyphenated_path);
+        if (config()->has($hyphenatedPath)) {
+            return config($hyphenatedPath);
         }
 
         return $default;
@@ -196,19 +196,25 @@ final class CachedCryptConfiguration
     /**
      * Resolve a boolean config value.
      *
+     * Named after the type it returns, like the sibling string()/integer()
+     * accessors, so it opts out of predicate naming rather than asking a
+     * yes/no question.
+     *
+     * @imperative
+     *
      * @param  string  $key
      * @param  bool  $default
      * @return bool
      */
     private function boolean(string $key, bool $default): bool
     {
-        $config_value = $this->value($key, $default);
+        $configValue = $this->value($key, $default);
 
-        if (is_bool($config_value)) {
-            return $config_value;
+        if (is_bool($configValue)) {
+            return $configValue;
         }
 
-        return (bool) $config_value;
+        return (bool) $configValue;
     }
 
     /**
@@ -219,19 +225,19 @@ final class CachedCryptConfiguration
      */
     private function string(string $key): ?string
     {
-        $config_value = $this->value($key);
+        $configValue = $this->value($key);
 
-        if (!is_string($config_value)) {
+        if (!is_string($configValue)) {
             return null;
         }
 
-        $trimmed_value = trim($config_value);
+        $trimmedValue = trim($configValue);
 
-        if ($trimmed_value === '') {
+        if ($trimmedValue === '') {
             return null;
         }
 
-        return $trimmed_value;
+        return $trimmedValue;
     }
 
     /**
@@ -243,13 +249,13 @@ final class CachedCryptConfiguration
      */
     private function integer(string $key, int $default): int
     {
-        $config_value = $this->value($key, $default);
+        $configValue = $this->value($key, $default);
 
-        if (!is_numeric($config_value)) {
+        if (!is_numeric($configValue)) {
             return $default;
         }
 
-        return (int) $config_value;
+        return (int) $configValue;
     }
 
     /**
@@ -260,17 +266,17 @@ final class CachedCryptConfiguration
      */
     private function nullableInteger(string $key): ?int
     {
-        $config_value = $this->value($key);
+        $configValue = $this->value($key);
 
-        if ($config_value === null || $config_value === '') {
+        if ($configValue === null || $configValue === '') {
             return null;
         }
 
-        if (!is_numeric($config_value)) {
+        if (!is_numeric($configValue)) {
             return null;
         }
 
-        return (int) $config_value;
+        return (int) $configValue;
     }
 
     /**
@@ -286,13 +292,13 @@ final class CachedCryptConfiguration
         $passes   = true;
 
         if ($resolver !== null) {
-            $resolved_resolver = $this->eligibilityResolver($resolver);
+            $resolvedResolver = $this->eligibilityResolver($resolver);
 
-            if ($resolved_resolver === null) {
+            if ($resolvedResolver === null) {
                 $passes = false;
             } else {
                 try {
-                    $passes = $resolved_resolver($payload, $unserialize);
+                    $passes = $resolvedResolver($payload, $unserialize);
                 } catch (\Throwable) {
                     $passes = false;
                 }

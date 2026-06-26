@@ -30,9 +30,11 @@ abstract class TestCase extends OrchestraTestCase
     {
         parent::setUp();
 
-        if (config()->has('cache.stores.array')) {
-            Cache::store('array')->clear();
+        if (!config()->has('cache.stores.array')) {
+            return;
         }
+
+        Cache::store('array')->clear();
     }
 
     /**

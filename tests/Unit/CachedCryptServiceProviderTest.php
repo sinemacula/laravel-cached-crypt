@@ -30,6 +30,11 @@ final class CachedCryptServiceProviderTest extends TestCase
             /**
              * Determine if app is running in console.
              *
+             * Mirrors the framework's Application::runningInConsole() that the
+             * provider calls, so the name is fixed by the API it emulates.
+             *
+             * @imperative
+             *
              * @return bool
              */
             public function runningInConsole(): bool

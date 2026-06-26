@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Crypt;
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
  */
-class CachedCryptServiceProvider extends EncryptionServiceProvider
+final class CachedCryptServiceProvider extends EncryptionServiceProvider
 {
     /**
      * Bootstrap any application services.
@@ -24,9 +24,11 @@ class CachedCryptServiceProvider extends EncryptionServiceProvider
     {
         $this->offerPublishing();
 
-        if ($this->cachedCryptEnabled()) {
-            Crypt::swap($this->app['encrypter']);
+        if (!$this->cachedCryptEnabled()) {
+            return;
         }
+
+        Crypt::swap($this->app['encrypter']);
     }
 
     /**
@@ -58,7 +60,7 @@ class CachedCryptServiceProvider extends EncryptionServiceProvider
             return;
         }
 
-        $this->app->singleton('encrypter', function ($app) {
+        $this->app->singleton('encrypter', function ($app): Encrypter {
             $config = $app->make('config')->get('app');
 
             return (new Encrypter($this->parseKey($config), $config['cipher']))
