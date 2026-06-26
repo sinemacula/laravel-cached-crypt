@@ -76,8 +76,8 @@ final class EncrypterTest extends TestCase
             ],
         ]);
 
-        $log_spy = new MetricLoggerSpy;
-        Log::swap($log_spy);
+        $logSpy = new MetricLoggerSpy;
+        Log::swap($logSpy);
 
         $encrypter = $this->newEncrypter();
         $payload   = $encrypter->encrypt('memo-value');
@@ -85,9 +85,9 @@ final class EncrypterTest extends TestCase
         self::assertSame('memo-value', $encrypter->decrypt($payload));
         self::assertSame('memo-value', $encrypter->decrypt($payload));
 
-        $this->assertMetricLogged($log_spy, 'decrypt.executed', 1);
-        $this->assertMetricLogged($log_spy, 'cache.miss', 1, 'memo');
-        $this->assertMetricLogged($log_spy, 'cache.hit', 1, 'memo');
+        $this->assertMetricLogged($logSpy, 'decrypt.executed', 1);
+        $this->assertMetricLogged($logSpy, 'cache.miss', 1, 'memo');
+        $this->assertMetricLogged($logSpy, 'cache.hit', 1, 'memo');
         self::assertNull(Cache::store('array')->get($this->expectedCacheKey($payload)));
     }
 
@@ -110,22 +110,22 @@ final class EncrypterTest extends TestCase
             ],
         ]);
 
-        $log_spy = new MetricLoggerSpy;
-        Log::swap($log_spy);
+        $logSpy = new MetricLoggerSpy;
+        Log::swap($logSpy);
 
-        $first_encrypter  = $this->newEncrypter();
-        $payload          = $first_encrypter->encrypt('persistent-value');
-        $expected_key     = $this->expectedCacheKey($payload);
-        $first_decryption = $first_encrypter->decrypt($payload);
+        $firstEncrypter  = $this->newEncrypter();
+        $payload         = $firstEncrypter->encrypt('persistent-value');
+        $expectedKey     = $this->expectedCacheKey($payload);
+        $firstDecryption = $firstEncrypter->decrypt($payload);
 
-        self::assertSame('persistent-value', $first_decryption);
-        self::assertSame(['value' => 'persistent-value'], Cache::store('array')->get($expected_key));
+        self::assertSame('persistent-value', $firstDecryption);
+        self::assertSame(['value' => 'persistent-value'], Cache::store('array')->get($expectedKey));
 
-        $second_encrypter = $this->newEncrypter();
+        $secondEncrypter = $this->newEncrypter();
 
-        self::assertSame('persistent-value', $second_encrypter->decrypt($payload));
+        self::assertSame('persistent-value', $secondEncrypter->decrypt($payload));
 
-        $this->assertMetricLogged($log_spy, 'cache.hit', 1, 'persistent');
+        $this->assertMetricLogged($logSpy, 'cache.hit', 1, 'persistent');
     }
 
     /**
@@ -145,15 +145,16 @@ final class EncrypterTest extends TestCase
 
         $encrypter = $this->newEncrypter();
         $payload   = $encrypter->encrypt('fingerprinted');
-        $cache_key = $this->expectedCacheKey($payload);
+        $cacheKey  = $this->expectedCacheKey($payload);
 
-        self::assertStringContainsString(':fp-1:', $cache_key);
+        self::assertStringContainsString(':fp-1:', $cacheKey);
         self::assertSame('fingerprinted', $encrypter->decrypt($payload));
-        self::assertSame(['value' => 'fingerprinted'], Cache::store('array')->get($cache_key));
+        self::assertSame(['value' => 'fingerprinted'], Cache::store('array')->get($cacheKey));
     }
 
     /**
-     * Ensure persistence is skipped when plaintext exceeds configured max bytes.
+     * Ensure persistence is skipped when plaintext exceeds the configured
+     * maximum byte size.
      *
      * @return void
      */
@@ -171,8 +172,8 @@ final class EncrypterTest extends TestCase
             ],
         ]);
 
-        $log_spy = new MetricLoggerSpy;
-        Log::swap($log_spy);
+        $logSpy = new MetricLoggerSpy;
+        Log::swap($logSpy);
 
         $encrypter = $this->newEncrypter();
         $payload   = $encrypter->encrypt('toolong');
@@ -180,7 +181,7 @@ final class EncrypterTest extends TestCase
         self::assertSame('toolong', $encrypter->decrypt($payload));
         self::assertNull(Cache::store('array')->get($this->expectedCacheKey($payload)));
 
-        $this->assertMetricLogged($log_spy, 'cache.skip.max_plaintext_bytes', 1);
+        $this->assertMetricLogged($logSpy, 'cache.skip.max_plaintext_bytes', 1);
     }
 
     /**
@@ -222,8 +223,8 @@ final class EncrypterTest extends TestCase
             ],
         ]);
 
-        $log_spy = new MetricLoggerSpy;
-        Log::swap($log_spy);
+        $logSpy = new MetricLoggerSpy;
+        Log::swap($logSpy);
 
         $encrypter = $this->newEncrypter();
         $payload   = $encrypter->encrypt('memo-guardrail');
@@ -231,8 +232,8 @@ final class EncrypterTest extends TestCase
         self::assertSame('memo-guardrail', $encrypter->decrypt($payload));
         self::assertSame('memo-guardrail', $encrypter->decrypt($payload));
 
-        $this->assertMetricLogged($log_spy, 'decrypt.executed', 2);
-        $this->assertMetricLogged($log_spy, 'cache.skip.max_memo_bytes', 2);
+        $this->assertMetricLogged($logSpy, 'decrypt.executed', 2);
+        $this->assertMetricLogged($logSpy, 'cache.skip.max_memo_bytes', 2);
     }
 
     /**
@@ -253,29 +254,30 @@ final class EncrypterTest extends TestCase
 
         $encrypter = $this->newEncrypter();
         $payload   = $encrypter->encrypt('null-limits');
-        $cache_key = $this->expectedCacheKey($payload);
+        $cacheKey  = $this->expectedCacheKey($payload);
 
         self::assertSame('null-limits', $encrypter->decrypt($payload));
-        self::assertSame(['value' => 'null-limits'], Cache::store('array')->get($cache_key));
+        self::assertSame(['value' => 'null-limits'], Cache::store('array')->get($cacheKey));
     }
 
     /**
-     * Ensure internal array memo fallback works when array store is unavailable.
+     * Ensure the internal array memo fallback works when the array store is
+     * unavailable.
      *
      * @return void
      */
     public function testDecryptUsesInternalMemoFallbackWhenArrayStoreIsUnavailable(): void
     {
-        $file_cache_path = sprintf('%s/cached-crypt-file-cache', sys_get_temp_dir());
+        $fileCachePath = sprintf('%s/cached-crypt-file-cache', sys_get_temp_dir());
 
-        if (!is_dir($file_cache_path)) {
-            mkdir($file_cache_path, 0777, true);
+        if (!is_dir($fileCachePath)) {
+            mkdir($fileCachePath, 0777, true);
         }
 
         config()->set('cache.stores', [
             'file' => [
                 'driver' => 'file',
-                'path'   => $file_cache_path,
+                'path'   => $fileCachePath,
             ],
         ]);
         config()->set('cache.default', 'file');
@@ -290,8 +292,8 @@ final class EncrypterTest extends TestCase
             ],
         ]);
 
-        $log_spy = new MetricLoggerSpy;
-        Log::swap($log_spy);
+        $logSpy = new MetricLoggerSpy;
+        Log::swap($logSpy);
 
         $encrypter = $this->newEncrypter();
         $payload   = $encrypter->encrypt('fallback-memo');
@@ -299,7 +301,7 @@ final class EncrypterTest extends TestCase
         self::assertSame('fallback-memo', $encrypter->decrypt($payload));
         self::assertSame('fallback-memo', $encrypter->decrypt($payload));
 
-        $this->assertMetricLogged($log_spy, 'cache.hit', 1, 'memo');
+        $this->assertMetricLogged($logSpy, 'cache.hit', 1, 'memo');
     }
 
     /**
@@ -318,9 +320,9 @@ final class EncrypterTest extends TestCase
 
         $encrypter = $this->newEncrypter();
         $payload   = $encrypter->encrypt('actual-value');
-        $cache_key = $this->expectedCacheKey($payload);
+        $cacheKey  = $this->expectedCacheKey($payload);
 
-        Cache::store('array')->put($cache_key, 'legacy-value', 120);
+        Cache::store('array')->put($cacheKey, 'legacy-value', 120);
 
         self::assertSame('legacy-value', $encrypter->decrypt($payload));
     }
@@ -332,15 +334,15 @@ final class EncrypterTest extends TestCase
      */
     public function testDecryptLogsTagSupportMetricWhenTagsUnsupported(): void
     {
-        $file_cache_path = sprintf('%s/cached-crypt-file-cache-tags', sys_get_temp_dir());
+        $fileCachePath = sprintf('%s/cached-crypt-file-cache-tags', sys_get_temp_dir());
 
-        if (!is_dir($file_cache_path)) {
-            mkdir($file_cache_path, 0777, true);
+        if (!is_dir($fileCachePath)) {
+            mkdir($fileCachePath, 0777, true);
         }
 
         config()->set('cache.stores.file', [
             'driver' => 'file',
-            'path'   => $file_cache_path,
+            'path'   => $fileCachePath,
         ]);
 
         $this->setCachedCryptConfig([
@@ -356,15 +358,15 @@ final class EncrypterTest extends TestCase
             ],
         ]);
 
-        $log_spy = new MetricLoggerSpy;
-        Log::swap($log_spy);
+        $logSpy = new MetricLoggerSpy;
+        Log::swap($logSpy);
 
         $encrypter = $this->newEncrypter();
         $payload   = $encrypter->encrypt('tag-check');
 
         self::assertSame('tag-check', $encrypter->decrypt($payload));
 
-        $this->assertMetricLogged($log_spy, 'cache.tags.unsupported', 1);
+        $this->assertMetricLogged($logSpy, 'cache.tags.unsupported', 1);
     }
 
     /**
@@ -402,25 +404,25 @@ final class EncrypterTest extends TestCase
     /**
      * Assert metric event was logged a specific number of times.
      *
-     * @param  \Tests\Fixtures\MetricLoggerSpy  $log_spy
+     * @param  \Tests\Fixtures\MetricLoggerSpy  $logSpy
      * @param  string  $metric
      * @param  int  $times
      * @param  string|null  $source
      * @return void
      */
-    private function assertMetricLogged(MetricLoggerSpy $log_spy, string $metric, int $times, ?string $source = null): void
+    private function assertMetricLogged(MetricLoggerSpy $logSpy, string $metric, int $times, ?string $source = null): void
     {
-        $matching_entries = array_filter(
-            $log_spy->entries,
+        $matchingEntries = array_filter(
+            $logSpy->entries,
             static function (array $entry) use ($metric, $source): bool {
-                $is_metric_event    = $entry['message']                     === 'cached-crypt.metric';
-                $is_expected_metric = ($entry['context']['metric'] ?? null) === $metric;
-                $is_expected_source = $source                               === null || ($entry['context']['context']['source'] ?? null) === $source;
+                $isMetricEvent    = $entry['message']                     === 'cached-crypt.metric';
+                $isExpectedMetric = ($entry['context']['metric'] ?? null) === $metric;
+                $isExpectedSource = $source                               === null || ($entry['context']['context']['source'] ?? null) === $source;
 
-                return $is_metric_event && $is_expected_metric && $is_expected_source;
+                return $isMetricEvent && $isExpectedMetric && $isExpectedSource;
             },
         );
 
-        self::assertCount($times, $matching_entries);
+        self::assertCount($times, $matchingEntries);
     }
 }

@@ -32,7 +32,7 @@ final class EncrypterInternalsTest extends TestCase
      */
     public function testPersistentRepositoryUsesTagsWhenSupported(): void
     {
-        $base_repository = new class (new ArrayStore) extends IlluminateCacheRepository {
+        $baseRepository = new class (new ArrayStore) extends IlluminateCacheRepository {
             /** @var array<int, mixed> */
             public array $lastTags = [];
 
@@ -57,33 +57,33 @@ final class EncrypterInternalsTest extends TestCase
             public function tags(mixed $names): TaggedCache
             {
                 $this->lastTags = is_array($names) ? array_values($names) : [$names];
-                $tag_names      = array_map(
+                $tagNames       = array_map(
                     static fn (mixed $name): string => is_scalar($name) ? (string) $name : get_debug_type($name),
                     $this->lastTags,
                 );
 
-                return new TaggedCache($this->getStore(), new TagSet($this->getStore(), $tag_names));
+                return new TaggedCache($this->getStore(), new TagSet($this->getStore(), $tagNames));
             }
         };
 
         Cache::shouldReceive('store')
             ->once()
             ->with('custom')
-            ->andReturn($base_repository);
+            ->andReturn($baseRepository);
 
         $encrypter = $this->newEncrypter();
 
-        $resolved_repository = $this->invokePrivateMethod(
+        $resolvedRepository = $this->invokePrivateMethod(
             $encrypter,
             'persistentRepository',
             ['custom', true, 'v2'],
         );
 
-        self::assertInstanceOf(TaggedCache::class, $resolved_repository);
+        self::assertInstanceOf(TaggedCache::class, $resolvedRepository);
         self::assertSame([
             'cached-crypt',
             'cached-crypt:v2',
-        ], $base_repository->lastTags);
+        ], $baseRepository->lastTags);
     }
 
     /**
@@ -93,22 +93,22 @@ final class EncrypterInternalsTest extends TestCase
      */
     public function testPersistentRepositoryBypassesTagsForNonIlluminateRepository(): void
     {
-        $cache_repository = self::createStub(CacheRepository::class);
+        $cacheRepository = self::createStub(CacheRepository::class);
 
         Cache::shouldReceive('store')
             ->once()
             ->with('custom')
-            ->andReturn($cache_repository);
+            ->andReturn($cacheRepository);
 
         $encrypter = $this->newEncrypter();
 
-        $resolved_repository = $this->invokePrivateMethod(
+        $resolvedRepository = $this->invokePrivateMethod(
             $encrypter,
             'persistentRepository',
             ['custom', true, 'v1'],
         );
 
-        self::assertSame($cache_repository, $resolved_repository);
+        self::assertSame($cacheRepository, $resolvedRepository);
     }
 
     /**
@@ -121,13 +121,13 @@ final class EncrypterInternalsTest extends TestCase
         $encrypter = $this->newEncrypter();
         $closure   = static fn (): bool => true;
 
-        $estimated_bytes = $this->invokePrivateMethod(
+        $estimatedBytes = $this->invokePrivateMethod(
             $encrypter,
             'estimatedBytes',
             [$closure],
         );
 
-        self::assertSame(strlen(\Closure::class), $estimated_bytes);
+        self::assertSame(strlen(\Closure::class), $estimatedBytes);
     }
 
     /**
@@ -139,13 +139,13 @@ final class EncrypterInternalsTest extends TestCase
     {
         $encrypter = $this->newEncrypter();
 
-        $estimated_bytes = $this->invokePrivateMethod(
+        $estimatedBytes = $this->invokePrivateMethod(
             $encrypter,
             'estimatedBytes',
             [123],
         );
 
-        self::assertSame(3, $estimated_bytes);
+        self::assertSame(3, $estimatedBytes);
     }
 
     /**
@@ -207,11 +207,11 @@ final class EncrypterInternalsTest extends TestCase
             'can_persist_plaintext' => true,
         ];
 
-        $resolved_value = $this->invokePrivateMethod($encrypter, 'resolveCachedValue', [$context]);
+        $resolvedValue = $this->invokePrivateMethod($encrypter, 'resolveCachedValue', [$context]);
 
-        self::assertFalse($resolved_value['hit']);
-        self::assertNull($resolved_value['value']);
-        self::assertNull($resolved_value['cache_repository']);
+        self::assertFalse($resolvedValue['hit']);
+        self::assertNull($resolvedValue['value']);
+        self::assertNull($resolvedValue['cache_repository']);
     }
 
     /**
@@ -239,26 +239,26 @@ final class EncrypterInternalsTest extends TestCase
             'can_persist_plaintext' => true,
         ];
 
-        $decrypted_value = $this->invokePrivateMethod(
+        $decryptedValue = $this->invokePrivateMethod(
             $encrypter,
             'decryptAndCache',
             [$payload, true, $context, $repository],
         );
 
-        self::assertSame('fail-open', $decrypted_value);
+        self::assertSame('fail-open', $decryptedValue);
     }
 
     /**
      * Invoke a private method on the encrypter.
      *
      * @param  \SineMacula\CachedCrypt\Encrypter  $encrypter
-     * @param  string  $method_name
+     * @param  string  $methodName
      * @param  array<int, mixed>  $arguments
      * @return mixed
      */
-    private function invokePrivateMethod(Encrypter $encrypter, string $method_name, array $arguments = []): mixed
+    private function invokePrivateMethod(Encrypter $encrypter, string $methodName, array $arguments = []): mixed
     {
-        $reflection = new \ReflectionMethod($encrypter, $method_name);
+        $reflection = new \ReflectionMethod($encrypter, $methodName);
 
         return $reflection->invokeArgs($encrypter, $arguments);
     }

@@ -38,9 +38,9 @@ final class CachedCryptServiceProviderIntegrationTest extends TestCase
 
         $provider->register();
 
-        $resolved_encrypter = $this->application()->make('encrypter');
+        $resolvedEncrypter = $this->application()->make('encrypter');
 
-        self::assertInstanceOf(Encrypter::class, $resolved_encrypter);
+        self::assertInstanceOf(Encrypter::class, $resolvedEncrypter);
     }
 
     /**
@@ -58,10 +58,10 @@ final class CachedCryptServiceProviderIntegrationTest extends TestCase
 
         $provider->register();
 
-        $resolved_encrypter = $this->application()->make('encrypter');
+        $resolvedEncrypter = $this->application()->make('encrypter');
 
-        self::assertInstanceOf(LaravelEncrypter::class, $resolved_encrypter);
-        self::assertSame(LaravelEncrypter::class, $resolved_encrypter::class);
+        self::assertInstanceOf(LaravelEncrypter::class, $resolvedEncrypter);
+        self::assertSame(LaravelEncrypter::class, $resolvedEncrypter::class);
     }
 
     /**
@@ -82,12 +82,12 @@ final class CachedCryptServiceProviderIntegrationTest extends TestCase
 
         $provider->register();
 
-        $resolved_encrypter = $this->application()->make('encrypter');
-        $legacy_encrypter   = new LaravelEncrypter(str_repeat('b', 32), 'aes-256-cbc');
-        $legacy_payload     = $legacy_encrypter->encrypt('legacy-value');
+        $resolvedEncrypter = $this->application()->make('encrypter');
+        $legacyEncrypter   = new LaravelEncrypter(str_repeat('b', 32), 'aes-256-cbc');
+        $legacyPayload     = $legacyEncrypter->encrypt('legacy-value');
 
-        self::assertInstanceOf(Encrypter::class, $resolved_encrypter);
-        self::assertSame('legacy-value', $resolved_encrypter->decrypt($legacy_payload));
+        self::assertInstanceOf(Encrypter::class, $resolvedEncrypter);
+        self::assertSame('legacy-value', $resolvedEncrypter->decrypt($legacyPayload));
     }
 
     /**
@@ -117,7 +117,7 @@ final class CachedCryptServiceProviderIntegrationTest extends TestCase
      */
     public function testBootSwapsCryptFacadeOnlyWhenEnabled(): void
     {
-        $dummy_encrypter = new class {
+        $dummyEncrypter = new class {
             /**
              * Marker method.
              *
@@ -129,24 +129,24 @@ final class CachedCryptServiceProviderIntegrationTest extends TestCase
             }
         };
 
-        Crypt::swap($dummy_encrypter);
+        Crypt::swap($dummyEncrypter);
 
-        $disabled_provider = new CachedCryptServiceProvider($this->application());
+        $disabledProvider = new CachedCryptServiceProvider($this->application());
 
         $this->setCachedCryptConfig([
             'enabled' => false,
         ]);
-        $disabled_provider->boot();
+        $disabledProvider->boot();
 
-        self::assertSame($dummy_encrypter, Crypt::getFacadeRoot());
+        self::assertSame($dummyEncrypter, Crypt::getFacadeRoot());
 
-        $enabled_provider = new CachedCryptServiceProvider($this->application());
+        $enabledProvider = new CachedCryptServiceProvider($this->application());
 
         $this->setCachedCryptConfig([
             'enabled' => true,
         ]);
-        $enabled_provider->register();
-        $enabled_provider->boot();
+        $enabledProvider->register();
+        $enabledProvider->boot();
 
         self::assertSame($this->application()->make('encrypter'), Crypt::getFacadeRoot());
     }

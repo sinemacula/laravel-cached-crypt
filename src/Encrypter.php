@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Log;
  * @author      Ben Carey <bdmc@sinemacula.co.uk>
  * @copyright   2026 Sine Macula Limited.
  */
-class Encrypter extends LaravelEncrypter
+final class Encrypter extends LaravelEncrypter
 {
     /** @var string */
     private const string CACHE_KEY_PREFIX = 'decrypted';
@@ -46,147 +46,39 @@ class Encrypter extends LaravelEncrypter
     #[\Override]
     public function decrypt(mixed $payload, mixed $unserialize = true): mixed
     {
-        $normalized_unserialize = (bool) $unserialize;
+        $normalizedUnserialize = (bool) $unserialize;
 
         if ($this->configuration()->enabled() && is_string($payload)) {
-            $cache_context = $this->cacheContext($payload, $normalized_unserialize);
-            $cached_value  = $this->resolveCachedValue($cache_context);
+            $cacheContext = $this->cacheContext($payload, $normalizedUnserialize);
+            $cachedValue  = $this->resolveCachedValue($cacheContext);
 
-            if ($cached_value['hit']) {
-                return $cached_value['value'];
+            if ($cachedValue['hit']) {
+                return $cachedValue['value'];
             }
 
             return $this->decryptAndCache(
                 $payload,
-                $normalized_unserialize,
-                $cache_context,
-                $cached_value['cache_repository'],
+                $normalizedUnserialize,
+                $cacheContext,
+                $cachedValue['cache_repository'],
             );
         }
 
-        return parent::decrypt($payload, $normalized_unserialize);
+        return parent::decrypt($payload, $normalizedUnserialize);
     }
 
     /**
-     * Resolve a cached value from memoization and optional persistent store.
+     * Resolve cached-crypt runtime configuration.
      *
-     * @param  array<string, mixed>  $cache_context
-     * @return array{hit: bool, value: mixed, cache_repository: \Illuminate\Contracts\Cache\Repository|null}
+     * @return \SineMacula\CachedCrypt\CachedCryptConfiguration
      */
-    private function resolveCachedValue(array $cache_context): array
+    private function configuration(): CachedCryptConfiguration
     {
-        $memoized_value        = $this->readMemoizedValue($cache_context['memo_key']);
-        $cache_repository      = null;
-        $resolved_value        = null;
-        $has_hit               = false;
-        $can_persist_plaintext = (bool) ($cache_context['can_persist_plaintext'] ?? false);
-
-        if ($memoized_value['hit']) {
-            $this->recordMetric('cache.hit', [
-                'source'    => 'memo',
-                'cache_key' => $cache_context['cache_key'],
-            ]);
-            $resolved_value = $memoized_value['value'];
-            $has_hit        = true;
+        if ($this->configuration === null) {
+            $this->configuration = new CachedCryptConfiguration;
         }
 
-        if (!$has_hit) {
-            $this->recordMetric('cache.miss', [
-                'source'    => 'memo',
-                'cache_key' => $cache_context['cache_key'],
-            ]);
-        }
-
-        if (!$has_hit && $can_persist_plaintext) {
-            try {
-                $cache_repository = $this->persistentRepository(
-                    $cache_context['store'],
-                    $cache_context['use_tags'],
-                    $cache_context['epoch'],
-                );
-                $persisted_value = $this->readRepositoryValue(
-                    $cache_repository,
-                    $cache_context['cache_key'],
-                );
-            } catch (\Throwable $exception) {
-                $cache_repository = null;
-                $this->recordMetric('cache.error', [
-                    'source'    => 'persistent',
-                    'operation' => 'read',
-                    'exception' => $exception::class,
-                ]);
-
-                $persisted_value = ['hit' => false, 'value' => null];
-            }
-
-            if ($persisted_value['hit']) {
-                $this->writeMemoizedValue(
-                    $cache_context['memo_key'],
-                    $persisted_value['value'],
-                    $cache_context['ttl_seconds'],
-                );
-                $this->recordMetric('cache.hit', [
-                    'source'    => 'persistent',
-                    'cache_key' => $cache_context['cache_key'],
-                ]);
-                $resolved_value = $persisted_value['value'];
-                $has_hit        = true;
-            }
-
-            if (!$has_hit) {
-                $this->recordMetric('cache.miss', [
-                    'source'    => 'persistent',
-                    'cache_key' => $cache_context['cache_key'],
-                ]);
-            }
-        }
-
-        return [
-            'hit'              => $has_hit,
-            'value'            => $resolved_value,
-            'cache_repository' => $cache_repository,
-        ];
-    }
-
-    /**
-     * Decrypt the payload and write eligible values to configured caches.
-     *
-     * @param  string  $payload
-     * @param  bool  $unserialize
-     * @param  array<string, mixed>  $context
-     * @param  \Illuminate\Contracts\Cache\Repository|null  $repository
-     * @return mixed
-     */
-    private function decryptAndCache(string $payload, bool $unserialize, array $context, ?CacheRepository $repository = null): mixed
-    {
-        $started_at          = microtime(true);
-        $decrypted_value     = parent::decrypt($payload, $unserialize);
-        $decrypt_duration_ms = (int) round((microtime(true) - $started_at) * 1000);
-
-        $this->writeMemoizedValue(
-            $context['memo_key'],
-            $decrypted_value,
-            $context['ttl_seconds'],
-        );
-
-        $this->recordMetric('decrypt.executed', [
-            'duration_ms' => $decrypt_duration_ms,
-            'cache_key'   => $context['cache_key'],
-        ]);
-
-        if ($repository !== null && $this->shouldPersistPlaintext($context, $decrypted_value)) {
-            try {
-                $this->persistPlaintextValue($repository, $context, $decrypted_value);
-            } catch (\Throwable $exception) {
-                $this->recordMetric('cache.error', [
-                    'source'    => 'persistent',
-                    'operation' => 'write',
-                    'exception' => $exception::class,
-                ]);
-            }
-        }
-
-        return $decrypted_value;
+        return $this->configuration;
     }
 
     /**
@@ -208,11 +100,11 @@ class Encrypter extends LaravelEncrypter
     {
         $configuration = $this->configuration();
         $epoch         = $configuration->epoch();
-        $cache_key     = $this->cacheKey($payload, $unserialize, $epoch);
+        $cacheKey      = $this->cacheKey($payload, $unserialize, $epoch);
 
         return [
-            'cache_key'             => $cache_key,
-            'memo_key'              => sprintf('%s:%s', self::MEMO_KEY_PREFIX, $cache_key),
+            'cache_key'             => $cacheKey,
+            'memo_key'              => sprintf('%s:%s', self::MEMO_KEY_PREFIX, $cacheKey),
             'ttl_seconds'           => $configuration->ttlSeconds(),
             'store'                 => $configuration->storeName(),
             'epoch'                 => $epoch,
@@ -252,33 +144,121 @@ class Encrypter extends LaravelEncrypter
     }
 
     /**
-     * Resolve the persistent cache repository.
+     * Resolve a cached value from memoization and optional persistent store.
      *
-     * @param  string|null  $store_name
-     * @param  bool  $use_tags
-     * @param  string  $epoch
-     * @return \Illuminate\Contracts\Cache\Repository
+     * @param  array<string, mixed>  $cacheContext
+     * @return array{hit: bool, value: mixed, cache_repository: \Illuminate\Contracts\Cache\Repository|null}
      */
-    private function persistentRepository(?string $store_name, bool $use_tags, string $epoch): CacheRepository
+    private function resolveCachedValue(array $cacheContext): array
     {
-        $cache_repository = $store_name === null ? Cache::store() : Cache::store($store_name);
+        $memoizedValue = $this->readMemoizedValue($cacheContext['memo_key']);
 
-        if (!$use_tags || !$cache_repository instanceof Repository) {
-            return $cache_repository;
-        }
-
-        if (!$cache_repository->supportsTags()) {
-            $this->recordMetric('cache.tags.unsupported', [
-                'store' => $store_name ?? 'default',
+        if ($memoizedValue['hit']) {
+            $this->recordMetric('cache.hit', [
+                'source'    => 'memo',
+                'cache_key' => $cacheContext['cache_key'],
             ]);
 
-            return $cache_repository;
+            return [
+                'hit'              => true,
+                'value'            => $memoizedValue['value'],
+                'cache_repository' => null,
+            ];
         }
 
-        return $cache_repository->tags([
-            'cached-crypt',
-            sprintf('cached-crypt:%s', $epoch),
+        $this->recordMetric('cache.miss', [
+            'source'    => 'memo',
+            'cache_key' => $cacheContext['cache_key'],
         ]);
+
+        if (!(bool) ($cacheContext['can_persist_plaintext'] ?? false)) {
+            return [
+                'hit'              => false,
+                'value'            => null,
+                'cache_repository' => null,
+            ];
+        }
+
+        return $this->resolvePersistedValue($cacheContext);
+    }
+
+    /**
+     * Resolve a cached value from the persistent store, memoizing any hit.
+     *
+     * @param  array<string, mixed>  $cacheContext
+     * @return array{hit: bool, value: mixed, cache_repository: \Illuminate\Contracts\Cache\Repository|null}
+     */
+    private function resolvePersistedValue(array $cacheContext): array
+    {
+        try {
+            $cacheRepository = $this->persistentRepository(
+                $cacheContext['store'],
+                $cacheContext['use_tags'],
+                $cacheContext['epoch'],
+            );
+            $persistedValue = $this->readRepositoryValue(
+                $cacheRepository,
+                $cacheContext['cache_key'],
+            );
+        } catch (\Throwable $exception) {
+            $this->recordMetric('cache.error', [
+                'source'    => 'persistent',
+                'operation' => 'read',
+                'exception' => $exception::class,
+            ]);
+            $this->recordMetric('cache.miss', [
+                'source'    => 'persistent',
+                'cache_key' => $cacheContext['cache_key'],
+            ]);
+
+            return ['hit' => false, 'value' => null, 'cache_repository' => null];
+        }
+
+        if (!$persistedValue['hit']) {
+            $this->recordMetric('cache.miss', [
+                'source'    => 'persistent',
+                'cache_key' => $cacheContext['cache_key'],
+            ]);
+
+            return ['hit' => false, 'value' => null, 'cache_repository' => $cacheRepository];
+        }
+
+        $this->writeMemoizedValue(
+            $cacheContext['memo_key'],
+            $persistedValue['value'],
+            $cacheContext['ttl_seconds'],
+        );
+        $this->recordMetric('cache.hit', [
+            'source'    => 'persistent',
+            'cache_key' => $cacheContext['cache_key'],
+        ]);
+
+        return [
+            'hit'              => true,
+            'value'            => $persistedValue['value'],
+            'cache_repository' => $cacheRepository,
+        ];
+    }
+
+    /**
+     * Read a value from the memoization cache.
+     *
+     * @param  string  $memoKey
+     * @return array{hit: bool, value: mixed}
+     */
+    private function readMemoizedValue(string $memoKey): array
+    {
+        $memoRepository = $this->memoRepository();
+
+        if ($memoRepository !== null) {
+            return $this->readRepositoryValue($memoRepository, $memoKey);
+        }
+
+        if (array_key_exists($memoKey, $this->memoCache)) {
+            return ['hit' => true, 'value' => $this->memoCache[$memoKey]];
+        }
+
+        return ['hit' => false, 'value' => null];
     }
 
     /**
@@ -296,234 +276,25 @@ class Encrypter extends LaravelEncrypter
     }
 
     /**
-     * Determine if decrypted data is within configured size limits.
-     *
-     * @param  mixed  $decrypted_value
-     * @return bool
-     */
-    private function withinMaxPlaintextSize(mixed $decrypted_value): bool
-    {
-        $max_plaintext_bytes = $this->configuration()->maxBytesToCache();
-
-        if ($max_plaintext_bytes === null) {
-            return true;
-        }
-
-        $estimated_bytes = $this->estimatedBytes($decrypted_value);
-        $is_within_limit = $estimated_bytes <= $max_plaintext_bytes;
-
-        if (!$is_within_limit) {
-            $this->recordMetric('cache.skip.max_plaintext_bytes', [
-                'plaintext_bytes'     => $estimated_bytes,
-                'max_plaintext_bytes' => $max_plaintext_bytes,
-            ]);
-        }
-
-        return $is_within_limit;
-    }
-
-    /**
-     * Estimate payload size in bytes for metric and guardrail decisions.
-     *
-     * @param  mixed  $value
-     * @return int
-     */
-    private function estimatedBytes(mixed $value): int
-    {
-        $estimated_bytes = 0;
-
-        if ($value !== null) {
-            if (is_string($value)) {
-                $estimated_bytes = strlen($value);
-            } elseif (is_scalar($value)) {
-                $estimated_bytes = strlen((string) $value);
-            } else {
-                try {
-                    $estimated_bytes = strlen(serialize($value));
-                } catch (\Throwable) {
-                    $estimated_bytes = strlen(get_debug_type($value));
-                }
-            }
-        }
-
-        return $estimated_bytes;
-    }
-
-    /**
-     * Read a value from the memoization cache.
-     *
-     * @param  string  $memo_key
-     * @return array{hit: bool, value: mixed}
-     */
-    private function readMemoizedValue(string $memo_key): array
-    {
-        $memo_repository = $this->memoRepository();
-
-        if ($memo_repository !== null) {
-            return $this->readRepositoryValue($memo_repository, $memo_key);
-        }
-
-        if (array_key_exists($memo_key, $this->memoCache)) {
-            return ['hit' => true, 'value' => $this->memoCache[$memo_key]];
-        }
-
-        return ['hit' => false, 'value' => null];
-    }
-
-    /**
-     * Write a value to the memoization cache.
-     *
-     * @param  string  $memo_key
-     * @param  mixed  $value
-     * @param  int  $ttl_seconds
-     * @return void
-     */
-    private function writeMemoizedValue(string $memo_key, mixed $value, int $ttl_seconds): void
-    {
-        if (!$this->withinMaxMemoSize($value)) {
-            return;
-        }
-
-        $memo_repository = $this->memoRepository();
-
-        if ($memo_repository !== null) {
-            $this->writeRepositoryValue($memo_repository, $memo_key, $value, $ttl_seconds);
-
-            return;
-        }
-
-        $this->memoCache[$memo_key] = $value;
-    }
-
-    /**
-     * Determine if decrypted data is within configured memoization size limits.
-     *
-     * @param  mixed  $decrypted_value
-     * @return bool
-     */
-    private function withinMaxMemoSize(mixed $decrypted_value): bool
-    {
-        $max_memo_bytes = $this->configuration()->maxMemoBytes();
-
-        if ($max_memo_bytes === null) {
-            return true;
-        }
-
-        $estimated_bytes = $this->estimatedBytes($decrypted_value);
-        $is_within_limit = $estimated_bytes <= $max_memo_bytes;
-
-        if (!$is_within_limit) {
-            $this->recordMetric('cache.skip.max_memo_bytes', [
-                'memo_bytes'     => $estimated_bytes,
-                'max_memo_bytes' => $max_memo_bytes,
-            ]);
-        }
-
-        return $is_within_limit;
-    }
-
-    /**
      * Read a value from a cache repository.
      *
-     * @param  \Illuminate\Contracts\Cache\Repository  $cache_repository
-     * @param  string  $cache_key
+     * @param  \Illuminate\Contracts\Cache\Repository  $cacheRepository
+     * @param  string  $cacheKey
      * @return array{hit: bool, value: mixed}
      */
-    private function readRepositoryValue(CacheRepository $cache_repository, string $cache_key): array
+    private function readRepositoryValue(CacheRepository $cacheRepository, string $cacheKey): array
     {
-        $cache_value = $cache_repository->get($cache_key);
+        $cacheValue = $cacheRepository->get($cacheKey);
 
-        if ($cache_value === null) {
+        if ($cacheValue === null) {
             return ['hit' => false, 'value' => null];
         }
 
-        if ($this->isValueEnvelope($cache_value)) {
-            return ['hit' => true, 'value' => $cache_value[self::VALUE_ENVELOPE_KEY]];
+        if (is_array($cacheValue) && array_key_exists(self::VALUE_ENVELOPE_KEY, $cacheValue)) {
+            return ['hit' => true, 'value' => $cacheValue[self::VALUE_ENVELOPE_KEY]];
         }
 
-        return ['hit' => true, 'value' => $cache_value];
-    }
-
-    /**
-     * Write a value to a cache repository.
-     *
-     * @param  \Illuminate\Contracts\Cache\Repository  $cache_repository
-     * @param  string  $cache_key
-     * @param  mixed  $value
-     * @param  int  $ttl_seconds
-     * @return void
-     */
-    private function writeRepositoryValue(CacheRepository $cache_repository, string $cache_key, mixed $value, int $ttl_seconds): void
-    {
-        $cache_repository->put(
-            $cache_key,
-            [self::VALUE_ENVELOPE_KEY => $value],
-            $ttl_seconds,
-        );
-    }
-
-    /**
-     * Determine whether decrypted plaintext should be persisted to cache.
-     *
-     * @param  array<string, mixed>  $context
-     * @param  mixed  $decrypted_value
-     * @return bool
-     */
-    private function shouldPersistPlaintext(array $context, mixed $decrypted_value): bool
-    {
-        $can_persist_plaintext = (bool) ($context['can_persist_plaintext'] ?? false);
-
-        return $can_persist_plaintext
-            && $this->withinMaxPlaintextSize($decrypted_value);
-    }
-
-    /**
-     * Persist decrypted plaintext and emit write metrics.
-     *
-     * @param  \Illuminate\Contracts\Cache\Repository  $repository
-     * @param  array<string, mixed>  $context
-     * @param  mixed  $decrypted_value
-     * @return void
-     */
-    private function persistPlaintextValue(CacheRepository $repository, array $context, mixed $decrypted_value): void
-    {
-        $this->writeRepositoryValue(
-            $repository,
-            $context['cache_key'],
-            $decrypted_value,
-            $context['ttl_seconds'],
-        );
-
-        $this->recordMetric('cache.write', [
-            'source'    => 'persistent',
-            'cache_key' => $context['cache_key'],
-            'bytes'     => $this->estimatedBytes($decrypted_value),
-        ]);
-    }
-
-    /**
-     * Determine if a cache value uses the expected envelope shape.
-     *
-     * @param  mixed  $cache_value
-     * @return bool
-     */
-    private function isValueEnvelope(mixed $cache_value): bool
-    {
-        return is_array($cache_value) && array_key_exists(self::VALUE_ENVELOPE_KEY, $cache_value);
-    }
-
-    /**
-     * Resolve cached-crypt runtime configuration.
-     *
-     * @return \SineMacula\CachedCrypt\CachedCryptConfiguration
-     */
-    private function configuration(): CachedCryptConfiguration
-    {
-        if ($this->configuration === null) {
-            $this->configuration = new CachedCryptConfiguration;
-        }
-
-        return $this->configuration;
+        return ['hit' => true, 'value' => $cacheValue];
     }
 
     /**
@@ -552,20 +323,254 @@ class Encrypter extends LaravelEncrypter
      */
     private function shouldSampleMetric(): bool
     {
-        $sample_rate = $this->configuration()->metricSampleRate();
+        $sampleRate = $this->configuration()->metricSampleRate();
 
-        if ($sample_rate <= 0.0) {
+        if ($sampleRate <= 0.0) {
             return false;
         }
 
-        $sample_threshold = $sample_rate >= 1.0
+        $sampleThreshold = $sampleRate >= 1.0
             ? 10000
-            : (int) round($sample_rate * 10000);
+            : (int) round($sampleRate * 10000);
 
-        if ($sample_threshold < 1) {
+        if ($sampleThreshold < 1) {
             return false;
         }
 
-        return random_int(1, 10000) <= $sample_threshold;
+        return random_int(1, 10000) <= $sampleThreshold;
+    }
+
+    /**
+     * Resolve the persistent cache repository.
+     *
+     * @param  string|null  $storeName
+     * @param  bool  $useTags
+     * @param  string  $epoch
+     * @return \Illuminate\Contracts\Cache\Repository
+     */
+    private function persistentRepository(?string $storeName, bool $useTags, string $epoch): CacheRepository
+    {
+        $cacheRepository = $storeName === null ? Cache::store() : Cache::store($storeName);
+
+        if (!$useTags || !$cacheRepository instanceof Repository) {
+            return $cacheRepository;
+        }
+
+        if (!$cacheRepository->supportsTags()) {
+            $this->recordMetric('cache.tags.unsupported', [
+                'store' => $storeName ?? 'default',
+            ]);
+
+            return $cacheRepository;
+        }
+
+        return $cacheRepository->tags([
+            'cached-crypt',
+            sprintf('cached-crypt:%s', $epoch),
+        ]);
+    }
+
+    /**
+     * Write a value to the memoization cache.
+     *
+     * @param  string  $memoKey
+     * @param  mixed  $value
+     * @param  int  $ttlSeconds
+     * @return void
+     */
+    private function writeMemoizedValue(string $memoKey, mixed $value, int $ttlSeconds): void
+    {
+        if (!$this->isWithinMaxMemoSize($value)) {
+            return;
+        }
+
+        $memoRepository = $this->memoRepository();
+
+        if ($memoRepository !== null) {
+            $this->writeRepositoryValue($memoRepository, $memoKey, $value, $ttlSeconds);
+
+            return;
+        }
+
+        $this->memoCache[$memoKey] = $value;
+    }
+
+    /**
+     * Determine if decrypted data is within configured memoization size limits.
+     *
+     * @param  mixed  $decryptedValue
+     * @return bool
+     */
+    private function isWithinMaxMemoSize(mixed $decryptedValue): bool
+    {
+        $maxMemoBytes = $this->configuration()->maxMemoBytes();
+
+        if ($maxMemoBytes === null) {
+            return true;
+        }
+
+        $estimatedBytes = $this->estimatedBytes($decryptedValue);
+        $isWithinLimit  = $estimatedBytes <= $maxMemoBytes;
+
+        if (!$isWithinLimit) {
+            $this->recordMetric('cache.skip.max_memo_bytes', [
+                'memo_bytes'     => $estimatedBytes,
+                'max_memo_bytes' => $maxMemoBytes,
+            ]);
+        }
+
+        return $isWithinLimit;
+    }
+
+    /**
+     * Estimate payload size in bytes for metric and guardrail decisions.
+     *
+     * @param  mixed  $value
+     * @return int
+     */
+    private function estimatedBytes(mixed $value): int
+    {
+        $estimatedBytes = 0;
+
+        if ($value !== null) {
+            if (is_string($value)) {
+                $estimatedBytes = strlen($value);
+            } elseif (is_scalar($value)) {
+                $estimatedBytes = strlen((string) $value);
+            } else {
+                try {
+                    $estimatedBytes = strlen(serialize($value));
+                } catch (\Throwable) {
+                    $estimatedBytes = strlen(get_debug_type($value));
+                }
+            }
+        }
+
+        return $estimatedBytes;
+    }
+
+    /**
+     * Write a value to a cache repository.
+     *
+     * @param  \Illuminate\Contracts\Cache\Repository  $cacheRepository
+     * @param  string  $cacheKey
+     * @param  mixed  $value
+     * @param  int  $ttlSeconds
+     * @return void
+     */
+    private function writeRepositoryValue(CacheRepository $cacheRepository, string $cacheKey, mixed $value, int $ttlSeconds): void
+    {
+        $cacheRepository->put(
+            $cacheKey,
+            [self::VALUE_ENVELOPE_KEY => $value],
+            $ttlSeconds,
+        );
+    }
+
+    /**
+     * Decrypt the payload and write eligible values to configured caches.
+     *
+     * @param  string  $payload
+     * @param  bool  $unserialize
+     * @param  array<string, mixed>  $context
+     * @param  \Illuminate\Contracts\Cache\Repository|null  $repository
+     * @return mixed
+     */
+    private function decryptAndCache(string $payload, bool $unserialize, array $context, ?CacheRepository $repository = null): mixed
+    {
+        $startedAt         = microtime(true);
+        $decryptedValue    = parent::decrypt($payload, $unserialize);
+        $decryptDurationMs = (int) round((microtime(true) - $startedAt) * 1000);
+
+        $this->writeMemoizedValue(
+            $context['memo_key'],
+            $decryptedValue,
+            $context['ttl_seconds'],
+        );
+
+        $this->recordMetric('decrypt.executed', [
+            'duration_ms' => $decryptDurationMs,
+            'cache_key'   => $context['cache_key'],
+        ]);
+
+        if ($repository !== null && $this->shouldPersistPlaintext($context, $decryptedValue)) {
+            try {
+                $this->persistPlaintextValue($repository, $context, $decryptedValue);
+            } catch (\Throwable $exception) {
+                $this->recordMetric('cache.error', [
+                    'source'    => 'persistent',
+                    'operation' => 'write',
+                    'exception' => $exception::class,
+                ]);
+            }
+        }
+
+        return $decryptedValue;
+    }
+
+    /**
+     * Determine whether decrypted plaintext should be persisted to cache.
+     *
+     * @param  array<string, mixed>  $context
+     * @param  mixed  $decryptedValue
+     * @return bool
+     */
+    private function shouldPersistPlaintext(array $context, mixed $decryptedValue): bool
+    {
+        $canPersistPlaintext = (bool) ($context['can_persist_plaintext'] ?? false);
+
+        return $canPersistPlaintext
+            && $this->isWithinMaxPlaintextSize($decryptedValue);
+    }
+
+    /**
+     * Determine if decrypted data is within configured size limits.
+     *
+     * @param  mixed  $decryptedValue
+     * @return bool
+     */
+    private function isWithinMaxPlaintextSize(mixed $decryptedValue): bool
+    {
+        $maxPlaintextBytes = $this->configuration()->maxBytesToCache();
+
+        if ($maxPlaintextBytes === null) {
+            return true;
+        }
+
+        $estimatedBytes = $this->estimatedBytes($decryptedValue);
+        $isWithinLimit  = $estimatedBytes <= $maxPlaintextBytes;
+
+        if (!$isWithinLimit) {
+            $this->recordMetric('cache.skip.max_plaintext_bytes', [
+                'plaintext_bytes'     => $estimatedBytes,
+                'max_plaintext_bytes' => $maxPlaintextBytes,
+            ]);
+        }
+
+        return $isWithinLimit;
+    }
+
+    /**
+     * Persist decrypted plaintext and emit write metrics.
+     *
+     * @param  \Illuminate\Contracts\Cache\Repository  $repository
+     * @param  array<string, mixed>  $context
+     * @param  mixed  $decryptedValue
+     * @return void
+     */
+    private function persistPlaintextValue(CacheRepository $repository, array $context, mixed $decryptedValue): void
+    {
+        $this->writeRepositoryValue(
+            $repository,
+            $context['cache_key'],
+            $decryptedValue,
+            $context['ttl_seconds'],
+        );
+
+        $this->recordMetric('cache.write', [
+            'source'    => 'persistent',
+            'cache_key' => $context['cache_key'],
+            'bytes'     => $this->estimatedBytes($decryptedValue),
+        ]);
     }
 }

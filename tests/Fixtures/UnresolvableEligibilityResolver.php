@@ -20,6 +20,12 @@ final class UnresolvableEligibilityResolver
      * @param  string  $dependency
      */
     public function __construct(
+
+        /**
+         * The dependency whose presence the resolver checks.
+         *
+         * @var string
+         */
         private readonly string $dependency,
     ) {}
 
