@@ -1,5 +1,19 @@
 # Laravel Cached Crypt
 
+> 📦 **This package is archived and no longer maintained.**
+> The problem it set out to solve - repeated in-request decryption overhead -
+> turns out to be a very narrow one in practice. Modern AES decryption is
+> extremely fast, and where repeated decryption is genuinely measurable it is
+> better handled at the application layer (caching the resolved value on the
+> model or behind a dedicated accessor) than by globally swapping the framework
+> encrypter. The optional cross-request plaintext caching also carried security
+> trade-offs that we no longer consider justified by the marginal gains.
+>
+> Existing tagged releases (up to `v1.3.1`) remain installable via
+> Composer/Packagist, but the repository is read-only and will receive no
+> further updates, including for new Laravel versions. We recommend relying on
+> Laravel's built-in encryption directly.
+
 [![Latest Stable Version](https://img.shields.io/packagist/v/sinemacula/laravel-cached-crypt.svg)](https://packagist.org/packages/sinemacula/laravel-cached-crypt)
 [![Build Status](https://github.com/sinemacula/laravel-cached-crypt/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/sinemacula/laravel-cached-crypt/actions/workflows/tests.yml)
 [![StyleCI](https://github.styleci.io/repos/989824280/shield?style=flat&branch=master)](https://github.styleci.io/repos/989824280)
